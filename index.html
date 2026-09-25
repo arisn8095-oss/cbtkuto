@@ -221,7 +221,7 @@
     </div>
 
     <script>
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxnR6mlcYtMboZlwEz6hd-x44Al1skp1iQ13438Gi6dZCeuBP0HS_HSHIQVZDWwf6Mr/exec";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4R9_407t8lAAoq-nn6F_FVT8K6L_rKWeHt5HLi_2NzrxaVrigcpQexZdjZlXvYydA/exec";
 
         // LOCAL MEMORY STATE (Synchronized with code.gs)
         const DB = {
@@ -826,27 +826,11 @@
                             <div id="loginFormContainer" class="space-y-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-700 mb-1">Nomor Induk Siswa (NIS)</label>
-                                    <input type="text" id="loginIdInput" placeholder="Masukkan NIS Siswa (Cth: 1001)..." class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
-                                    <span class="text-[11px] text-slate-400 mt-1 block">Akun demo siswa: 1001, 1002, 1003</span>
+                                    <input type="text" id="loginIdInput" placeholder="Masukkan NIS Siswa..." class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
                                 </div>
                                 <button onclick="EduGuard.login('student')" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-2 text-sm">
                                     <i class="fa-solid fa-right-to-bracket"></i> Masuk Ujian (Murid)
                                 </button>
-                            </div>
-
-                            <div class="mt-8 border-t border-slate-200 pt-5 space-y-2">
-                                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block text-center">Akses Cepat Pengujian:</span>
-                                <div class="grid grid-cols-3 gap-2">
-                                    <button onclick="EduGuard.quickLogin('student', '1001')" class="bg-blue-50 text-blue-700 px-2 py-2 rounded-xl font-bold border border-blue-200 hover:bg-blue-100 transition text-[11px] text-center truncate">
-                                        <i class="fa-solid fa-user-graduate block mb-1"></i> Murid (1001)
-                                    </button>
-                                    <button onclick="EduGuard.quickLogin('teacher', '19850715')" class="bg-purple-50 text-purple-700 px-2 py-2 rounded-xl font-bold border border-purple-200 hover:bg-purple-100 transition text-[11px] text-center truncate">
-                                        <i class="fa-solid fa-chalkboard-user block mb-1"></i> Guru Informatika
-                                    </button>
-                                    <button onclick="EduGuard.quickLogin('admin', 'ADMIN01')" class="bg-emerald-50 text-emerald-700 px-2 py-2 rounded-xl font-bold border border-emerald-200 hover:bg-emerald-100 transition text-[11px] text-center truncate">
-                                        <i class="fa-solid fa-user-shield block mb-1"></i> Admin Utama
-                                    </button>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -868,8 +852,7 @@
                     container.innerHTML = `
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Nomor Induk Siswa (NIS)</label>
-                            <input type="text" id="loginIdInput" placeholder="Masukkan NIS Siswa (Cth: 1001)..." class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
-                            <span class="text-[11px] text-slate-400 mt-1 block">Akun demo siswa: 1001, 1002, 1003</span>
+                            <input type="text" id="loginIdInput" placeholder="Masukkan NIS Siswa..." class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
                         </div>
                         <button onclick="EduGuard.login('student')" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 rounded-xl text-sm shadow-md transition active:scale-95 flex items-center justify-center gap-2">
                             <i class="fa-solid fa-right-to-bracket"></i> Masuk Ujian (Murid)
@@ -880,8 +863,7 @@
                     container.innerHTML = `
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Nomor Induk Pegawai (NIP Guru)</label>
-                            <input type="text" id="loginIdInput" placeholder="Masukkan NIP Guru (Cth: 19850715)..." class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none">
-                            <span class="text-[11px] text-slate-400 mt-1 block">Akun demo guru: 19850715 (Informatika), 19900210 (Matematika)</span>
+                            <input type="text" id="loginIdInput" placeholder="Masukkan NIP Guru..." class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none">
                         </div>
                         <button onclick="EduGuard.login('teacher')" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl text-sm shadow-md transition active:scale-95 flex items-center justify-center gap-2">
                             <i class="fa-solid fa-right-to-bracket"></i> Masuk Panel Guru (1 Mapel Terisolasi)
@@ -892,8 +874,7 @@
                     container.innerHTML = `
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">ID Administrator</label>
-                            <input type="text" id="loginIdInput" placeholder="Masukkan ID Admin (Cth: ADMIN01)..." class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                            <span class="text-[11px] text-slate-400 mt-1 block">ID Admin Default: ADMIN01</span>
+                            <input type="text" id="loginIdInput" placeholder="Masukkan ID Admin..." class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                         </div>
                         <button onclick="EduGuard.login('admin')" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 rounded-xl text-sm shadow-md transition active:scale-95 flex items-center justify-center gap-2">
                             <i class="fa-solid fa-right-to-bracket"></i> Masuk Panel Admin
@@ -1770,11 +1751,13 @@
                     subject: this.activeExam ? this.activeExam.subjectName : 'Ujian',
                     violationType: reason,
                     count: this.violationsCount,
-                    status: this.violationsCount >= this.maxViolations ? 'Dibatalkan (Auto-Submit)' : 'Teguran'
+                    status: this.violationsCount >= this.maxViolations ? 'Dibatalkan (Auto-Submit)' : 'Teguran',
+                    timestamp: new Date().toLocaleTimeString('id-ID')
                 };
 
+                // Instant Local Record tanpa menunggu response server
+                DB.cheatLogs.unshift(logData);
                 apiCall('logViolation', { log: logData });
-                DB.cheatLogs.push({ ...logData, timestamp: new Date().toLocaleTimeString() });
 
                 if (this.violationsCount >= this.maxViolations) {
                     document.getElementById('cheatOverlay').classList.add('hidden');
@@ -3883,11 +3866,19 @@
                 } else if (tab === 'cheat') {
                     return `
                         <div class="space-y-4">
-                            <div class="flex justify-between items-center bg-red-50 p-3 rounded-2xl border border-red-200">
-                                <span class="text-xs font-bold text-red-800">Total Pelanggaran Terdeteksi: <strong>${DB.cheatLogs.length}</strong> Insiden</span>
-                                <button onclick="EduGuard.syncDataSelective('RESULTS')" class="bg-white border border-red-300 text-red-700 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1 hover:bg-red-50 transition">
-                                    <i class="fa-solid fa-arrows-rotate"></i> Refresh Log
-                                </button>
+                            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 bg-red-50 p-3 rounded-2xl border border-red-200">
+                                <div>
+                                    <span class="text-xs font-bold text-red-900 block">Total Pelanggaran Terdeteksi: <strong class="text-red-700">${DB.cheatLogs.length}</strong> Insiden</span>
+                                    <span class="text-[11px] text-red-600">Catatan pengawasan langsung dari sistem lockdown ujian.</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="EduGuard.confirmClearAllCheatLogsModal()" class="bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-trash-can"></i> Hapus Semua Log
+                                    </button>
+                                    <button onclick="EduGuard.syncDataSelective('RESULTS')" class="bg-white border border-red-300 text-red-700 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1 hover:bg-red-50 transition active:scale-95">
+                                        <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                                    </button>
+                                </div>
                             </div>
                             <div class="overflow-x-auto border rounded-2xl bg-white shadow-sm">
                                 <table class="w-full text-left border-collapse text-xs">
@@ -3897,19 +3888,25 @@
                                             <th class="p-3 border-r border-slate-200">NIS</th>
                                             <th class="p-3 border-r border-slate-200">Nama Siswa</th>
                                             <th class="p-3 border-r border-slate-200">Jenis Pelanggaran</th>
-                                            <th class="p-3 text-center">Jumlah Peringatan</th>
+                                            <th class="p-3 text-center border-r border-slate-200">Jumlah Peringatan</th>
+                                            <th class="p-3 text-center w-24">Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y text-slate-600">
                                         ${DB.cheatLogs.length === 0 ? `
-                                            <tr><td colspan="5" class="p-6 text-center text-slate-400">Belum ada catatan pelanggaran siswa.</td></tr>
-                                        ` : DB.cheatLogs.map(l => `
+                                            <tr><td colspan="6" class="p-6 text-center text-slate-400">Belum ada catatan pelanggaran siswa.</td></tr>
+                                        ` : DB.cheatLogs.map((l, lIdx) => `
                                             <tr class="hover:bg-slate-50 transition">
                                                 <td class="p-3 border-r border-slate-200 font-mono text-[11px]">${l.timestamp || '-'}</td>
                                                 <td class="p-3 border-r border-slate-200 font-bold text-slate-800">${l.nis}</td>
                                                 <td class="p-3 border-r border-slate-200 font-semibold">${l.name}</td>
                                                 <td class="p-3 border-r border-slate-200 text-red-600 font-medium">${l.violationType}</td>
-                                                <td class="p-3 text-center font-bold text-red-700">${l.count}</td>
+                                                <td class="p-3 text-center border-r border-slate-200 font-bold text-red-700">${l.count}</td>
+                                                <td class="p-3 text-center">
+                                                    <button onclick="EduGuard.deleteSingleCheatLog(${lIdx})" class="px-2.5 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1 mx-auto active:scale-95" title="Hapus Data Ini">
+                                                        <i class="fa-solid fa-trash-can text-[10px]"></i> Hapus
+                                                    </button>
+                                                </td>
                                             </tr>
                                         `).join('')}
                                     </tbody>
@@ -4169,6 +4166,12 @@
                         </div>
                     `;
                 } else if (tab === 'sync_data') {
+                    const totalQCount = Object.keys(DB.examPackages).reduce((total, subKey) => {
+                        const pkgs = DB.examPackages[subKey];
+                        const pCount = Object.keys(pkgs).reduce((pSum, pKey) => pSum + (pkgs[pKey]?.length || 0), 0);
+                        return total + pCount;
+                    }, 0);
+
                     return `
                         <div class="space-y-4">
                             <!-- HEADER AMBIL DATA DARI GOOGLE SHEETS -->
@@ -4177,7 +4180,7 @@
                                     <h4 class="font-extrabold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
                                         <i class="fa-solid fa-cloud-arrow-down text-emerald-600"></i> Kontrol Pengambilan Data (Google Sheets Sync Engine)
                                     </h4>
-                                    <p class="text-xs text-slate-600 mt-0.5">Tarik data termutakhir dari spreadsheet database Google Spreadsheet (< 5 Detik).</p>
+                                    <p class="text-xs text-slate-600 mt-0.5">Tarik data termutakhir dari spreadsheet database Google Spreadsheet secara instan tanpa blocking.</p>
                                 </div>
                                 <button onclick="EduGuard.syncDataSelective('ALL')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs shadow-md transition flex items-center gap-2 active:scale-95 whitespace-nowrap">
                                     <i class="fa-solid fa-bolt text-amber-300"></i> Tarik Seluruh Data Sekaligus (< 5s)
@@ -4243,6 +4246,64 @@
                                 </div>
                             </div>
 
+                            <!-- PANEL DATA TERUPDATE REALTIME (LIVE INSPECTOR) -->
+                            <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-2xl p-4 sm:p-5 shadow-lg border border-slate-700 space-y-3">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700 pb-3">
+                                    <div>
+                                        <h5 class="text-sm font-extrabold flex items-center gap-2 text-emerald-400">
+                                            <i class="fa-solid fa-database"></i> Ringkasan Data Terupdate (Live Realtime Cache)
+                                        </h5>
+                                        <p class="text-[11px] text-slate-300">Data ini tersinkronisasi instan dengan sistem dan Google Spreadsheet.</p>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[11px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-xl">
+                                            Terakhir Sync: <strong>${this.adminLastSyncTime || 'Sesi Baru Aktif'}</strong>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
+                                        <span class="text-[10px] text-slate-400 font-bold uppercase block">Total Pengguna Terdata</span>
+                                        <span class="text-base font-black text-white">${DB.students.length + DB.teachers.length} <span class="text-[10px] text-slate-400 font-normal">(${DB.students.length} Siswa, ${DB.teachers.length} Guru)</span></span>
+                                    </div>
+                                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
+                                        <span class="text-[10px] text-slate-400 font-bold uppercase block">Mata Pelajaran Aktif</span>
+                                        <span class="text-base font-black text-purple-300">${DB.subjects.length} Mapel</span>
+                                    </div>
+                                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
+                                        <span class="text-[10px] text-slate-400 font-bold uppercase block">Total Soal Terunggah</span>
+                                        <span class="text-base font-black text-amber-300">${totalQCount} Butir</span>
+                                    </div>
+                                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
+                                        <span class="text-[10px] text-slate-400 font-bold uppercase block">Ujian Siswa Terkirim</span>
+                                        <span class="text-base font-black text-emerald-300">${DB.results.length} Jawaban</span>
+                                    </div>
+                                </div>
+
+                                <!-- TABEL DATA DETAIL TERUPDATE -->
+                                <div class="bg-slate-800/60 rounded-xl p-3 border border-slate-700 space-y-2">
+                                    <div class="flex justify-between items-center text-[11px] font-bold text-slate-300">
+                                        <span>Status Paket Soal & Token Terkini:</span>
+                                        <span class="text-emerald-400 text-[10px]">Aktif Digunakan Siswa</span>
+                                    </div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto pr-1">
+                                        ${DB.subjects.map(s => `
+                                            <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-700 text-[11px] flex justify-between items-center">
+                                                <div>
+                                                    <strong class="text-white">${s.name}</strong>
+                                                    <span class="block text-[10px] text-slate-400">Guru NIP: ${s.teacherNip}</span>
+                                                </div>
+                                                <div class="text-right">
+                                                    <span class="text-purple-300 font-bold">${(s.publishedPackages || []).length} Terbit</span>
+                                                    <span class="block font-mono text-[10px] text-amber-300">Tok: ${(s.packageTokens && s.packageTokens['A']) || s.token || '-'}</span>
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- STATUS & LOG AKTIVITAS SINKRONISASI -->
                             <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
                                 <div class="flex justify-between items-center">
@@ -4251,9 +4312,9 @@
                                     </h5>
                                     <span class="text-[11px] font-mono text-slate-400">Database Ready</span>
                                 </div>
-                                <div class="bg-white border border-slate-200 rounded-xl p-3 max-h-40 overflow-y-auto font-mono text-[11px] space-y-1 text-slate-600">
+                                <div class="bg-white border border-slate-200 rounded-xl p-3 max-h-36 overflow-y-auto font-mono text-[11px] space-y-1 text-slate-600">
                                     ${this.adminSyncLogs.length === 0 ? `
-                                        <p class="text-slate-400 italic">Belum ada aktivitas pengambilan data pada sesi ini. Klik salah satu tombol di atas untuk memulai sinkronisasi.</p>
+                                        <p class="text-slate-400 italic">Sistem otomatis menjalankan sync realtime. Klik tombol di atas jika ingin memaksa penarikan manual.</p>
                                     ` : this.adminSyncLogs.map(l => `
                                         <div class="flex items-center justify-between border-b border-slate-100 py-1">
                                             <span>[${l.time}] &bull; ${l.target}: <strong>${l.message}</strong></span>
@@ -4264,6 +4325,40 @@
                             </div>
                         </div>
                     `;
+                }
+            },
+
+            confirmClearAllCheatLogsModal() {
+                const body = `
+                    <div class="text-center py-2 space-y-3">
+                        <i class="fa-solid fa-triangle-exclamation text-4xl text-red-500"></i>
+                        <p class="font-bold text-sm text-slate-800">Hapus Seluruh Data Log Kecurangan?</p>
+                        <p class="text-xs text-slate-500">Semua catatan pelanggaran siswa (${DB.cheatLogs.length} data) akan dibersihkan dari memori dan spreadsheet.</p>
+                    </div>
+                `;
+                const footer = `
+                    <button onclick="EduGuard.closeModal()" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold">Batal</button>
+                    <button onclick="EduGuard.clearAllCheatLogs()" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-md">Ya, Bersihkan Semua</button>
+                `;
+                this.showModal('Konfirmasi Bersihkan Log', body, footer);
+            },
+
+            clearAllCheatLogs() {
+                DB.cheatLogs = [];
+                this.closeModal();
+                this.renderAdminDashboard();
+                this.showToast('Seluruh data kecurangan berhasil dihapus!', 'success');
+                // Background cloud sync tanpa blocking
+                apiCall('clearCheatLogs');
+            },
+
+            deleteSingleCheatLog(idx) {
+                if (idx >= 0 && idx < DB.cheatLogs.length) {
+                    const removed = DB.cheatLogs.splice(idx, 1)[0];
+                    this.renderAdminDashboard();
+                    this.showToast(`Log pelanggaran ${removed.name} dihapus.`, 'info');
+                    // Background cloud delete
+                    apiCall('deleteCheatLog', { nis: removed.nis, timestamp: removed.timestamp });
                 }
             },
 
