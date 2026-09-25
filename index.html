@@ -221,127 +221,18 @@
     </div>
 
     <script>
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4R9_407t8lAAoq-nn6F_FVT8K6L_rKWeHt5HLi_2NzrxaVrigcpQexZdjZlXvYydA/exec";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwp1grD6pGaBJ9RaYeVl_FTkznybdq-h1onfYKL2N0B7uaD8Euwg4mIc-3xJYVKUVeR/exec";
 
-        // LOCAL MEMORY STATE (Synchronized with code.gs)
+        // LOCAL MEMORY STATE (Bersih tanpa akun demo tiruan)
         const DB = {
             admin: { id: "ADMIN01", name: "Administrator Utama", role: "admin" },
-            teachers: [
-                { nip: "19850715", name: "Budi Santoso, M.Kom", subject: "Informatika", subjectId: "SUB-19850715" },
-                { nip: "19900210", name: "Siti Nurhaliza, S.Pd", subject: "Matematika Peminatan", subjectId: "SUB-19900210" }
-            ],
-            students: [
-                { nis: "1001", name: "Ahmad Zaky", class: "XII MIPA 1", deviceId: null },
-                { nis: "1002", name: "Bunga Citra", class: "XII MIPA 2", deviceId: null },
-                { nis: "1003", name: "Candra Wijaya", class: "XII IPS 1", deviceId: null }
-            ],
-            subjects: [
-                {
-                    id: "SUB-19850715",
-                    name: "Informatika",
-                    teacherNip: "19850715",
-                    packages: ["A", "B", "C"],
-                    packageTokens: { "A": "TOK123", "B": "PBK123", "C": "PCK123" },
-                    packageDurations: { "A": 60, "B": 60, "C": 60 },
-                    packageRandomize: {
-                        "A": { questions: true, options: true },
-                        "B": { questions: false, options: false },
-                        "C": { questions: false, options: false }
-                    },
-                    durationMin: 60,
-                    finalizedPackages: ["A", "B"],
-                    publishedPackages: ["A", "B"]
-                },
-                {
-                    id: "SUB-19900210",
-                    name: "Matematika Peminatan",
-                    teacherNip: "19900210",
-                    packages: ["A", "B"],
-                    packageTokens: { "A": "MAT123", "B": "MTK123" },
-                    packageDurations: { "A": 90, "B": 90 },
-                    packageRandomize: {
-                        "A": { questions: true, options: true },
-                        "B": { questions: false, options: false }
-                    },
-                    durationMin: 90,
-                    finalizedPackages: ["A"],
-                    publishedPackages: ["A"]
-                }
-            ],
-            examPackages: {
-                "SUB-19850715": {
-                    "A": [
-                        {
-                            id: "Q_INF_A1",
-                            type: "PG",
-                            text: "Shortcut keyboard yang digunakan untuk menyalin (copy) objek/teks pada sistem operasi komputer adalah ....",
-                            image: "",
-                            options: ["Ctrl + V", "Ctrl + C", "Ctrl + X", "Ctrl + Z", "Ctrl + S"],
-                            correctKey: 1,
-                            weight: 20
-                        },
-                        {
-                            id: "Q_INF_A2",
-                            type: "PGK",
-                            text: "Pilihlah komponen perangkat keras yang tergolong sebagai Input Device (Perangkat Masukan)! (Pilih beberapa opsi)",
-                            image: "",
-                            options: ["Keyboard", "Monitor LED", "Mouse Optik", "Printer Laser", "Microphone"],
-                            correctKeys: [0, 2, 4],
-                            weight: 20
-                        },
-                        {
-                            id: "Q_INF_A3",
-                            type: "BS",
-                            text: "Tentukan nilai kebenaran untuk masing-masing pernyataan arsitektur komputer berikut:",
-                            image: "",
-                            statements: [
-                                "RAM bersifat volatile sehingga data hilang ketika daya listrik terputus.",
-                                "SSD memiliki kecepatan akses data yang lebih lambat dibanding HDD mekanik.",
-                                "Sistem Operasi berfungsi sebagai jembatan antara hardware dan pengguna."
-                            ],
-                            options: [
-                                "RAM bersifat volatile sehingga data hilang ketika daya listrik terputus.",
-                                "SSD memiliki kecepatan akses data yang lebih lambat dibanding HDD mekanik.",
-                                "Sistem Operasi berfungsi sebagai jembatan antara hardware dan pengguna."
-                            ],
-                            correctKey: { 0: "BENAR", 1: "SALAH", 2: "BENAR" },
-                            weight: 20
-                        },
-                        {
-                            id: "Q_INF_A4",
-                            type: "URUTAN",
-                            text: "Susunlah tahapan siklus pengolahan data (Information Processing Cycle) secara berurutan:",
-                            image: "",
-                            items: ["Input (Masukan)", "Process (Pemrosesan)", "Storage (Penyimpanan)", "Output (Keluaran)"],
-                            correctOrder: ["Input (Masukan)", "Process (Pemrosesan)", "Storage (Penyimpanan)", "Output (Keluaran)"],
-                            weight: 20
-                        },
-                        {
-                            id: "Q_INF_A5",
-                            type: "JODOH",
-                            text: "Pasangkan klasifikasi jaringan komputer berikut dengan jangkauan wilayahnya yang tepat:",
-                            image: "",
-                            pairs: [
-                                { left: "LAN (Local Area Network)", right: "Jangkauan lokal dalam satu ruangan, gedung, atau sekolah" },
-                                { left: "MAN (Metropolitan Area Network)", right: "Jangkauan antar gedung dalam satu kawasan kota" },
-                                { left: "WAN (Wide Area Network)", right: "Jangkauan luas mencakup antar kota, pulau, dan negara" }
-                            ],
-                            weight: 20
-                        }
-                    ]
-                }
-            },
+            teachers: [],
+            students: [],
+            subjects: [],
+            examPackages: {},
             cheatLogs: [],
-            results: [
-                { rowIdx: 2, nis: "1001", name: "Ahmad Zaky", class: "XII MIPA 1", subject: "Informatika", package: "A", scorePG: 100, totalScore: 100, status: "Selesai", submittedAt: "08:10:00" },
-                { rowIdx: 3, nis: "1002", name: "Bunga Citra", class: "XII MIPA 2", subject: "Informatika", package: "A", scorePG: 80, totalScore: 80, status: "Selesai", submittedAt: "08:12:00" },
-                { rowIdx: 4, nis: "1003", name: "Candra Wijaya", class: "XII IPS 1", subject: "Informatika", package: "A", scorePG: 40, totalScore: 40, status: "Selesai", submittedAt: "08:15:00" }
-            ],
-            studentAnswersMap: {
-                "1001_Informatika_A": { 0: 1, 1: [0, 2, 4], 2: { 0: "BENAR", 1: "SALAH", 2: "BENAR" }, 3: ["Input (Masukan)", "Process (Pemrosesan)", "Storage (Penyimpanan)", "Output (Keluaran)"], 4: [{ left: "LAN (Local Area Network)", userRight: "Jangkauan lokal dalam satu ruangan, gedung, atau sekolah" }] },
-                "1002_Informatika_A": { 0: 1, 1: [0, 2, 4], 2: { 0: "BENAR", 1: "SALAH", 2: "BENAR" }, 3: ["Input (Masukan)", "Process (Pemrosesan)", "Output (Keluaran)", "Storage (Penyimpanan)"], 4: [{ left: "LAN (Local Area Network)", userRight: "Jangkauan lokal dalam satu ruangan, gedung, atau sekolah" }] },
-                "1003_Informatika_A": { 0: 0, 1: [0, 1], 2: { 0: "SALAH", 1: "BENAR", 2: "BENAR" }, 3: ["Output (Keluaran)", "Storage (Penyimpanan)", "Input (Masukan)", "Process (Pemrosesan)"], 4: [{ left: "LAN (Local Area Network)", userRight: "Jangkauan antar gedung dalam satu kawasan kota" }] }
-            }
+            results: [],
+            studentAnswersMap: {}
         };
 
         // Asynchronous Bridge to Google Apps Script Backend with Fast Timeout & Memory Fallback
@@ -1817,46 +1708,73 @@
             async submitExam(isAutoSubmit = false) {
                 if (this.examTimerInterval) clearInterval(this.examTimerInterval);
 
-                let totalPGScore = 0;
+                let totalFinalScore = 0;
                 const standardKeyAnswers = {};
 
+                // ATURAN PENILAIAN: Skor Akhir = jumlah bobot, jika jawaban salah maka bobot = 0
                 this.activeExam.questions.forEach((q, idx) => {
                     const ans = this.userAnswers[idx];
                     const weight = Number(q.weight || 20);
                     const origIndex = q.originalIndex !== undefined ? q.originalIndex : idx;
                     standardKeyAnswers[origIndex] = ans;
 
-                    if (q.type === 'PG' && ans === q.correctKey) {
-                        totalPGScore += weight;
-                    } else if (q.type === 'PGK' && Array.isArray(ans) && Array.isArray(q.correctKeys)) {
-                        const userSorted = [...ans].sort().join(',');
-                        const correctSorted = [...q.correctKeys].sort().join(',');
-                        if (userSorted === correctSorted) totalPGScore += weight;
+                    let isCorrect = false;
+
+                    if (q.type === 'PG') {
+                        if (ans !== undefined && ans !== null && Number(ans) === Number(q.correctKey)) {
+                            isCorrect = true;
+                        }
+                    } else if (q.type === 'PGK') {
+                        if (Array.isArray(ans) && Array.isArray(q.correctKeys) && ans.length === q.correctKeys.length) {
+                            const userSorted = [...ans].map(Number).sort().join(',');
+                            const correctSorted = [...q.correctKeys].map(Number).sort().join(',');
+                            if (userSorted === correctSorted) isCorrect = true;
+                        }
                     } else if (q.type === 'BS') {
-                        if (typeof ans === 'object' && ans !== null && (q.statements || (q.options && !q.options.includes('BENAR')))) {
-                            const statements = q.statements || q.options;
-                            let correctCount = 0;
-                            const keysObj = typeof q.correctKey === 'object' && q.correctKey !== null ? q.correctKey : {};
-                            statements.forEach((st, stIdx) => {
-                                const userVal = String(ans[stIdx] || '').toUpperCase();
-                                const correctVal = String(keysObj[stIdx] || 'BENAR').toUpperCase();
-                                if (userVal === correctVal || (userVal === 'B' && correctVal === 'BENAR') || (userVal === 'S' && correctVal === 'SALAH')) correctCount++;
-                            });
-                            if (correctCount === statements.length) totalPGScore += weight;
-                            else if (correctCount > 0) totalPGScore += Math.round((correctCount / statements.length) * weight);
+                        const statements = q.statements || (q.options && !q.options.includes('BENAR') ? q.options : null);
+                        if (statements && Array.isArray(statements) && statements.length > 0) {
+                            if (typeof ans === 'object' && ans !== null) {
+                                const keysObj = typeof q.correctKey === 'object' && q.correctKey !== null ? q.correctKey : {};
+                                let allMatch = true;
+                                for (let stIdx = 0; stIdx < statements.length; stIdx++) {
+                                    const userVal = String(ans[stIdx] || '').toUpperCase();
+                                    const correctVal = String(keysObj[stIdx] || 'BENAR').toUpperCase();
+                                    const uNorm = (userVal === 'B' || userVal === 'BENAR') ? 'BENAR' : (userVal === 'S' || userVal === 'SALAH') ? 'SALAH' : userVal;
+                                    const cNorm = (correctVal === 'B' || correctVal === 'BENAR') ? 'BENAR' : (correctVal === 'S' || correctVal === 'SALAH') ? 'SALAH' : correctVal;
+                                    if (uNorm !== cNorm) {
+                                        allMatch = false;
+                                        break;
+                                    }
+                                }
+                                if (allMatch) isCorrect = true;
+                            }
                         } else {
                             const normAns = String(ans || '').toUpperCase();
                             const normKey = String(q.correctKey || 'BENAR').toUpperCase();
-                            if (normAns === normKey || (normAns === 'B' && normKey === 'BENAR') || (normAns === 'S' && normKey === 'SALAH')) totalPGScore += weight;
+                            const uNorm = (normAns === 'B' || normAns === 'BENAR') ? 'BENAR' : (normAns === 'S' || normAns === 'SALAH') ? 'SALAH' : normAns;
+                            const cNorm = (normKey === 'B' || normKey === 'BENAR') ? 'BENAR' : (normKey === 'S' || normKey === 'SALAH') ? 'SALAH' : normKey;
+                            if (uNorm === cNorm) isCorrect = true;
                         }
-                    } else if (q.type === 'URUTAN' && Array.isArray(ans) && Array.isArray(q.correctOrder)) {
-                        if (JSON.stringify(ans) === JSON.stringify(q.correctOrder)) totalPGScore += weight;
-                    } else if (q.type === 'JODOH' && Array.isArray(ans) && Array.isArray(q.pairs)) {
-                        let correctCount = 0;
-                        q.pairs.forEach((pair, pIdx) => {
-                            if (ans[pIdx] && ans[pIdx].userRight === pair.right) correctCount++;
-                        });
-                        if (correctCount === q.pairs.length) totalPGScore += weight;
+                    } else if (q.type === 'URUTAN') {
+                        if (Array.isArray(ans) && Array.isArray(q.correctOrder)) {
+                            if (JSON.stringify(ans) === JSON.stringify(q.correctOrder)) isCorrect = true;
+                        }
+                    } else if (q.type === 'JODOH') {
+                        if (Array.isArray(ans) && Array.isArray(q.pairs)) {
+                            let allMatch = true;
+                            for (let pIdx = 0; pIdx < q.pairs.length; pIdx++) {
+                                if (!ans[pIdx] || ans[pIdx].userRight !== q.pairs[pIdx].right) {
+                                    allMatch = false;
+                                    break;
+                                }
+                            }
+                            if (allMatch) isCorrect = true;
+                        }
+                    }
+
+                    // Tambahkan bobot penuh jika benar, 0 jika salah
+                    if (isCorrect) {
+                        totalFinalScore += weight;
                     }
                 });
 
@@ -1867,8 +1785,8 @@
                     subjectId: this.activeExam.subjectId,
                     subject: this.activeExam.subjectName,
                     package: this.activeExam.package,
-                    scorePG: totalPGScore,
-                    totalScore: totalPGScore,
+                    scorePG: totalFinalScore,
+                    totalScore: totalFinalScore,
                     status: isAutoSubmit ? 'Dibatalkan (Auto-Submit)' : 'Selesai',
                     userAnswers: standardKeyAnswers
                 };
@@ -2056,14 +1974,12 @@
             },
 
             async fetchTeacherDataFast(source = '', isSilent = false) {
-                const now = Date.now();
-                if (!isSilent && now - this.teacherDataLastFetched < 2500) return;
-
                 const subId = this.teacherSelectedSubject;
                 const pkg = this.teacherSelectedPkg;
                 const startTime = performance.now();
 
-                const res = await apiCall('getTeacherDashboardData', { subjectId: subId, package: pkg }, 4000);
+                // Maksimal waktu pengambilan data cepat: 4500ms (< 5 Detik)
+                const res = await apiCall('getTeacherDashboardData', { subjectId: subId, package: pkg }, 4500);
                 const elapsedSec = ((performance.now() - startTime) / 1000).toFixed(2);
 
                 if (res && res.status === 'success' && res.data) {
@@ -2072,16 +1988,20 @@
                         if (!DB.examPackages[subId]) DB.examPackages[subId] = {};
                         DB.examPackages[subId][pkg] = d.questions;
                     }
-                    if (d.results) DB.results = d.results;
+                    if (d.results && Array.isArray(d.results)) {
+                        DB.results = d.results;
+                    }
                     if (d.answersMap) {
                         if (!DB.studentAnswersMap) DB.studentAnswersMap = {};
                         Object.assign(DB.studentAnswersMap, d.answersMap);
                     }
                     this.teacherDataLastFetched = Date.now();
                     if (!isSilent) {
-                        this.showToast(`Data berhasil ditarik cepat dalam ${elapsedSec} detik!`, 'success');
+                        this.showToast(`Data berhasil ditarik dari database dalam ${elapsedSec}s (Target < 5s)!`, 'success');
                     }
                     this.renderTeacherDashboard();
+                } else if (!isSilent) {
+                    this.showToast(`Sinkronisasi selesai dalam ${elapsedSec}s. Menggunakan data memori terkini.`, 'info');
                 }
             },
 
@@ -2392,20 +2312,20 @@
                     const activeSubjectObj = DB.subjects.find(s => s.id === subjectId);
                     const subjectName = activeSubjectObj ? activeSubjectObj.name : 'Mata Pelajaran';
                     const filteredResults = DB.results.filter(r => !r.subject || r.subject === subjectName || subjectName.includes(r.subject) || r.subject.includes(subjectName));
-                    const listToDisplay = filteredResults.length > 0 ? filteredResults : DB.results;
+                    const listToDisplay = filteredResults;
 
                     return `
                         <div class="space-y-4">
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-purple-50 border border-purple-200 p-4 rounded-2xl">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-purple-50 border border-purple-200 p-4 rounded-2xl shadow-xs">
                                 <div>
                                     <h4 class="font-bold text-purple-900 text-xs sm:text-sm flex items-center gap-2">
                                         <i class="fa-solid fa-square-poll-vertical text-purple-600"></i> Rekapitulasi Nilai & Hasil Pengerjaan Siswa
                                     </h4>
-                                    <p class="text-xs text-purple-700">Mapel: <strong>${subjectName}</strong> | Data tersimpan otomatis dan dapat ditarik dalam &lt; 5 detik.</p>
+                                    <p class="text-xs text-purple-700 mt-0.5">Mapel: <strong>${subjectName}</strong> &bull; Aturan Penilaian: <strong>Skor Akhir = Jumlah Bobot Benar (Jika Salah, Bobot = 0)</strong></p>
                                 </div>
                                 <div class="flex gap-2">
-                                    <button onclick="EduGuard.fetchTeacherDataFast('results_tab')" class="bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
-                                        <i class="fa-solid fa-rotate"></i> Sync Nilai (&lt; 5s)
+                                    <button onclick="EduGuard.fetchTeacherDataFast('results_tab')" class="bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95" title="Ambil data dari database maksimal 5 detik">
+                                        <i class="fa-solid fa-bolt text-amber-500"></i> Tarik Database (&lt; 5s)
                                     </button>
                                     <button onclick="EduGuard.exportTeacherResultsExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md transition flex items-center gap-2 active:scale-95 whitespace-nowrap">
                                         <i class="fa-solid fa-file-excel text-sm"></i> Unduh Excel
@@ -2414,9 +2334,10 @@
                             </div>
 
                             ${listToDisplay.length === 0 ? `
-                                <div class="text-center py-8 text-slate-400 text-xs border rounded-2xl bg-white p-6">
-                                    <i class="fa-solid fa-file-circle-xmark text-3xl mb-2 block text-slate-300"></i>
-                                    Belum ada data pengerjaan ujian siswa untuk mata pelajaran ini.
+                                <div class="text-center py-10 text-slate-400 text-xs border rounded-2xl bg-white p-6 shadow-sm">
+                                    <i class="fa-solid fa-file-circle-xmark text-4xl mb-3 block text-slate-300"></i>
+                                    <p class="font-bold text-slate-600 text-sm">Belum Ada Hasil Ujian Siswa</p>
+                                    <p class="text-[11px] text-slate-400 mt-1">Data nilai akan otomatis masuk setelah siswa selesai mengerjakan ujian, atau klik <strong>Tarik Database (&lt; 5s)</strong> di atas.</p>
                                 </div>
                             ` : `
                                 <div class="overflow-x-auto border rounded-2xl bg-white shadow-sm">
@@ -2427,7 +2348,7 @@
                                                 <th class="p-3">Nama Siswa</th>
                                                 <th class="p-3">Kelas</th>
                                                 <th class="p-3">Paket</th>
-                                                <th class="p-3 font-extrabold text-purple-800">Skor Akhir (Max 100)</th>
+                                                <th class="p-3 font-extrabold text-purple-800">Skor Akhir (Bobot Benar)</th>
                                                 <th class="p-3">Status</th>
                                                 <th class="p-3">Waktu Selesai</th>
                                                 <th class="p-3 text-center">Hasil Pekerjaan</th>
@@ -2440,7 +2361,7 @@
                                                     <td class="p-3 font-semibold text-slate-700">${r.name}</td>
                                                     <td class="p-3">${r.class || '-'}</td>
                                                     <td class="p-3"><span class="bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded text-[10px]">Paket ${r.package || 'A'}</span></td>
-                                                    <td class="p-3 font-black text-purple-700 text-sm">${r.totalScore}</td>
+                                                    <td class="p-3 font-black text-purple-700 text-sm">${r.totalScore} Poin</td>
                                                     <td class="p-3">
                                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold ${r.status && r.status.includes('Dibatalkan') ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}">${r.status || 'Selesai'}</span>
                                                     </td>
@@ -2472,19 +2393,19 @@
                                             <th class="p-3">NIS</th>
                                             <th class="p-3">Nama Siswa</th>
                                             <th class="p-3">Jenis Pelanggaran</th>
-                                            <th class="p-3">KALI</th>
+                                            <th class="p-3 text-center">Jumlah</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y text-slate-600">
                                         ${DB.cheatLogs.length === 0 ? `
                                             <tr><td colspan="5" class="p-4 text-center text-slate-400">Belum ada catatan pelanggaran siswa.</td></tr>
                                         ` : DB.cheatLogs.map(l => `
-                                            <tr>
-                                                <td class="p-3">${l.timestamp}</td>
+                                            <tr class="hover:bg-slate-50 transition">
+                                                <td class="p-3 font-mono text-[11px]">${l.timestamp || '-'}</td>
                                                 <td class="p-3 font-bold">${l.nis}</td>
-                                                <td class="p-3">${l.name}</td>
-                                                <td class="p-3 text-red-600 font-semibold">${l.violationType}</td>
-                                                <td class="p-3 font-bold">${l.count}</td>
+                                                <td class="p-3 font-semibold">${l.name}</td>
+                                                <td class="p-3 text-red-600 font-medium">${l.violationType}</td>
+                                                <td class="p-3 text-center font-bold text-red-700">${l.count}</td>
                                             </tr>
                                         `).join('')}
                                     </tbody>
@@ -3698,8 +3619,8 @@
                                 <p class="text-xs text-slate-600">Kelas: <strong>${className}</strong> | Mapel: <strong>${subjectName}</strong> | Paket: <strong>${pkg}</strong></p>
                             </div>
                             <div class="text-right">
-                                <span class="text-[10px] text-slate-500 font-bold block">Skor Total:</span>
-                                <span class="text-2xl font-black text-purple-700">${totalScore} / 100</span>
+                                <span class="text-[10px] text-slate-500 font-bold block">Skor Akhir (Akumulasi Bobot):</span>
+                                <span class="text-2xl font-black text-purple-700">${totalScore} Poin</span>
                             </div>
                         </div>
 
@@ -3708,19 +3629,55 @@
                                 const userAns = answersMap[qIdx];
                                 const formattedQImg = this.formatImageUrl(q.image);
                                 const weight = Number(q.weight || 20);
-                                let isCorrect = (q.type === 'PG' && userAns === q.correctKey);
+
+                                let isCorrect = false;
+                                if (q.type === 'PG') {
+                                    isCorrect = (userAns !== undefined && userAns !== null && Number(userAns) === Number(q.correctKey));
+                                } else if (q.type === 'PGK') {
+                                    if (Array.isArray(userAns) && Array.isArray(q.correctKeys) && userAns.length === q.correctKeys.length) {
+                                        isCorrect = ([...userAns].map(Number).sort().join(',') === [...q.correctKeys].map(Number).sort().join(','));
+                                    }
+                                } else if (q.type === 'BS') {
+                                    const st = q.statements || (q.options && !q.options.includes('BENAR') ? q.options : null);
+                                    if (st && typeof userAns === 'object' && userAns !== null) {
+                                        const kObj = typeof q.correctKey === 'object' && q.correctKey !== null ? q.correctKey : {};
+                                        isCorrect = st.every((_, sIdx) => {
+                                            const uVal = String(userAns[sIdx] || '').toUpperCase();
+                                            const cVal = String(kObj[sIdx] || 'BENAR').toUpperCase();
+                                            const uNorm = (uVal === 'B' || uVal === 'BENAR') ? 'BENAR' : (uVal === 'S' || uVal === 'SALAH') ? 'SALAH' : uVal;
+                                            const cNorm = (cVal === 'B' || cVal === 'BENAR') ? 'BENAR' : (cVal === 'S' || cVal === 'SALAH') ? 'SALAH' : cVal;
+                                            return uNorm === cNorm;
+                                        });
+                                    } else {
+                                        const uNorm = String(userAns || '').toUpperCase();
+                                        const cNorm = String(q.correctKey || 'BENAR').toUpperCase();
+                                        isCorrect = (uNorm === cNorm || (uNorm === 'B' && cNorm === 'BENAR') || (uNorm === 'S' && cNorm === 'SALAH'));
+                                    }
+                                } else if (q.type === 'URUTAN') {
+                                    isCorrect = (Array.isArray(userAns) && JSON.stringify(userAns) === JSON.stringify(q.correctOrder));
+                                } else if (q.type === 'JODOH') {
+                                    if (Array.isArray(userAns) && Array.isArray(q.pairs)) {
+                                        isCorrect = q.pairs.every((p, pIdx) => userAns[pIdx] && userAns[pIdx].userRight === p.right);
+                                    }
+                                }
 
                                 return `
                                     <div class="border rounded-2xl p-4 bg-slate-50 space-y-2">
                                         <div class="flex justify-between items-center">
                                             <span class="bg-purple-100 text-purple-900 text-[10px] font-extrabold px-2 py-0.5 rounded">Soal ${qIdx + 1} (${q.type})</span>
-                                            <span class="text-[11px] font-bold ${isCorrect ? 'text-emerald-700' : 'text-red-700'}">${isCorrect ? `✓ Benar (+${weight})` : '✗ Salah (0)'}</span>
+                                            <span class="text-[11px] font-bold ${isCorrect ? 'text-emerald-700' : 'text-red-700'}">${isCorrect ? `✓ Benar (+${weight} Poin)` : '✗ Salah (0 Poin)'}</span>
                                         </div>
                                         <p class="text-xs font-bold text-slate-800">${q.text}</p>
                                         ${formattedQImg ? `<img src="${formattedQImg}" class="max-h-32 rounded border bg-white p-1">` : ''}
-                                        <div class="p-2.5 bg-white border rounded-xl text-xs">
-                                            <span class="text-[10px] text-slate-400 uppercase font-bold block">Jawaban Siswa:</span>
-                                            <p class="font-bold text-slate-700">${JSON.stringify(userAns !== undefined ? userAns : 'Tidak Menjawab')}</p>
+                                        <div class="p-2.5 bg-white border rounded-xl text-xs space-y-1">
+                                            <div>
+                                                <span class="text-[10px] text-slate-400 uppercase font-bold block">Jawaban Siswa:</span>
+                                                <p class="font-bold text-slate-700">${JSON.stringify(userAns !== undefined ? userAns : 'Tidak Menjawab')}</p>
+                                            </div>
+                                            <div>
+                                                <span class="text-[10px] text-emerald-600 uppercase font-bold block">Kunci Jawaban:</span>
+                                                <p class="font-semibold text-emerald-700">${JSON.stringify(q.correctKey !== undefined ? q.correctKey : (q.correctKeys || q.correctOrder || q.pairs))}</p>
+                                            </div>
                                         </div>
                                     </div>
                                 `;
