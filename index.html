@@ -193,169 +193,20 @@
     </div>
 
     <script>
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyTbtei_w8tmNOxizaYW4YRbucgb63l5-MN5dSFGiU2-l3CxSvWtN_-fo7Cv_2kn-fY/exec";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwPQ4HsaoqWwSSdLnahyMNZu8_L9wON43O8Ke1Y21tv-6x7sy5YhUE7c41m5lsZkPON/exec";
         const DB_SISTEM_ID = "1nD60VMcGXeEED5JJVVzZAbU7BmkyIOE7EZtHEnsUkac";
         const DB_SOAL_ID   = "14Iy4Y18ITNtWciKrhQIFd2o_aq9KW1ARKxwV2HqE8KU";
 
+        // Database dinamis yang murni bersumber dari Google Spreadsheet (Akun & data demo dummy dinonaktifkan/dikosongkan)
         const DB = {
             admin: { id: "ADMIN01", name: "Administrator Utama", role: "admin" },
-            teachers: [
-                { nip: "19850715", name: "Budi Santoso, M.Kom", subject: "Informatika", subjectId: "SUB-19850715" },
-                { nip: "19900210", name: "Siti Nurhaliza, S.Pd", subject: "Matematika Peminatan", subjectId: "SUB-19900210" }
-            ],
-            students: [
-                { nis: "1001", name: "Ahmad Zaky", class: "XII MIPA 1", deviceId: null },
-                { nis: "1002", name: "Bunga Citra", class: "XII MIPA 2", deviceId: null },
-                { nis: "1003", name: "Candra Wijaya", class: "XII IPS 1", deviceId: null }
-            ],
-            subjects: [
-                {
-                    id: "SUB-19850715",
-                    name: "Informatika",
-                    teacherNip: "19850715",
-                    teacherName: "Budi Santoso, M.Kom",
-                    packages: ["A", "B", "C"],
-                    packageTokens: { "A": "TOK123", "B": "PBK123", "C": "PCK123" },
-                    packageDurations: { "A": 60, "B": 60, "C": 60 },
-                    packageNotes: {
-                        "A": "Kerjakan dengan teliti dan jujur. Wajib minimal 1 menit per soal. Periksa kembali jawaban sebelum mengirim.",
-                        "B": "Mencakup materi Jaringan Komputer, Topologi Jaringan, dan Algoritma Dasar.",
-                        "C": "Paket pengayaan materi semester ganjil."
-                    },
-                    packageRandomize: {
-                        "A": { questions: true, options: true },
-                        "B": { questions: false, options: false },
-                        "C": { questions: false, options: false }
-                    },
-                    durationMin: 60,
-                    finalizedPackages: ["A", "B"],
-                    publishedPackages: ["A", "B"]
-                },
-                {
-                    id: "SUB-19900210",
-                    name: "Matematika Peminatan",
-                    teacherNip: "19900210",
-                    teacherName: "Siti Nurhaliza, S.Pd",
-                    packages: ["A", "B"],
-                    packageTokens: { "A": "MAT123", "B": "MTK123" },
-                    packageDurations: { "A": 90, "B": 90 },
-                    packageNotes: {
-                        "A": "Sediakan kertas buram untuk coretan rumus limit trigonometri. Dilarang menggunakan kalkulator gawai.",
-                        "B": "Fokus pada bab Turunan Fungsi Trigonometri dan Aplikasi Nilai Maksimum/Minimum."
-                    },
-                    packageRandomize: {
-                        "A": { questions: true, options: true },
-                        "B": { questions: false, options: false }
-                    },
-                    durationMin: 90,
-                    finalizedPackages: ["A"],
-                    publishedPackages: ["A"]
-                }
-            ],
-            examPackages: {
-                "SUB-19850715": {
-                    "A": [
-                        {
-                            id: "Q_INF_A1",
-                            type: "PG",
-                            text: "Shortcut keyboard yang digunakan untuk menyalin (copy) objek/teks pada sistem operasi komputer adalah ....",
-                            image: "",
-                            options: ["Ctrl + V", "Ctrl + C", "Ctrl + X", "Ctrl + Z", "Ctrl + S"],
-                            correctKey: 1,
-                            weight: 20
-                        },
-                        {
-                            id: "Q_INF_A2",
-                            type: "PGK",
-                            text: "Pilihlah komponen perangkat keras yang tergolong sebagai Input Device (Perangkat Masukan)! (Pilih beberapa opsi)",
-                            image: "",
-                            options: ["Keyboard", "Monitor LED", "Mouse Optik", "Printer Laser", "Microphone"],
-                            correctKeys: [0, 2, 4],
-                            weight: 20
-                        },
-                        {
-                            id: "Q_INF_A3",
-                            type: "BS",
-                            text: "Tentukan nilai kebenaran untuk masing-masing pernyataan arsitektur komputer berikut:",
-                            image: "",
-                            statements: [
-                                "RAM bersifat volatile sehingga data hilang ketika daya listrik terputus.",
-                                "SSD memiliki kecepatan akses data yang lebih lambat dibanding HDD mekanik.",
-                                "Sistem Operasi berfungsi sebagai jembatan antara hardware dan pengguna."
-                            ],
-                            options: [
-                                "RAM bersifat volatile sehingga data hilang ketika daya listrik terputus.",
-                                "SSD memiliki kecepatan akses data yang lebih lambat dibanding HDD mekanik.",
-                                "Sistem Operasi berfungsi sebagai jembatan antara hardware dan pengguna."
-                            ],
-                            correctKey: { 0: "BENAR", 1: "SALAH", 2: "BENAR" },
-                            weight: 20
-                        },
-                        {
-                            id: "Q_INF_A4",
-                            type: "URUTAN",
-                            text: "Susunlah tahapan siklus pengolahan data (Information Processing Cycle) secara berurutan:",
-                            image: "",
-                            items: ["Input (Masukan)", "Process (Pemrosesan)", "Storage (Penyimpanan)", "Output (Keluaran)"],
-                            correctOrder: ["Input (Masukan)", "Process (Pemrosesan)", "Storage (Penyimpanan)", "Output (Keluaran)"],
-                            weight: 20
-                        },
-                        {
-                            id: "Q_INF_A5",
-                            type: "JODOH",
-                            text: "Pasangkan klasifikasi jaringan komputer berikut dengan jangkauan wilayahnya yang tepat:",
-                            image: "",
-                            pairs: [
-                                { left: "LAN (Local Area Network)", right: "Jangkauan lokal dalam satu ruangan, gedung, atau sekolah" },
-                                { left: "MAN (Metropolitan Area Network)", right: "Jangkauan antar gedung dalam satu kawasan kota" },
-                                { left: "WAN (Wide Area Network)", right: "Jangkauan luas mencakup antar kota, pulau, dan negara" }
-                            ],
-                            weight: 20
-                        }
-                    ]
-                }
-            },
+            teachers: [],
+            students: [],
+            subjects: [],
+            examPackages: {},
             cheatLogs: [],
-            results: [
-                { rowIdx: 2, nis: "1001", name: "Ahmad Zaky", class: "XII MIPA 1", subject: "Informatika", package: "A", scorePG: 100, totalScore: 100, status: "Selesai", submittedAt: "08:10:00" },
-                { rowIdx: 3, nis: "1002", name: "Bunga Citra", class: "XII MIPA 2", subject: "Informatika", package: "A", scorePG: 80, totalScore: 80, status: "Selesai", submittedAt: "08:12:00" },
-                { rowIdx: 4, nis: "1003", name: "Candra Wijaya", class: "XII IPS 1", subject: "Informatika", package: "A", scorePG: 40, totalScore: 40, status: "Selesai", submittedAt: "08:15:00" }
-            ],
-            studentAnswersMap: {
-                "1001_Informatika_A": { 
-                    0: 1, 
-                    1: [0, 2, 4], 
-                    2: { 0: "BENAR", 1: "SALAH", 2: "BENAR" }, 
-                    3: ["Input (Masukan)", "Process (Pemrosesan)", "Storage (Penyimpanan)", "Output (Keluaran)"], 
-                    4: [
-                        { left: "LAN (Local Area Network)", userRight: "Jangkauan lokal dalam satu ruangan, gedung, atau sekolah" },
-                        { left: "MAN (Metropolitan Area Network)", userRight: "Jangkauan antar gedung dalam satu kawasan kota" },
-                        { left: "WAN (Wide Area Network)", userRight: "Jangkauan luas mencakup antar kota, pulau, dan negara" }
-                    ] 
-                },
-                "1002_Informatika_A": { 
-                    0: 1, 
-                    1: [0, 2, 4], 
-                    2: { 0: "BENAR", 1: "SALAH", 2: "BENAR" }, 
-                    3: ["Input (Masukan)", "Process (Pemrosesan)", "Output (Keluaran)", "Storage (Penyimpanan)"], 
-                    4: [
-                        { left: "LAN (Local Area Network)", userRight: "Jangkauan lokal dalam satu ruangan, gedung, atau sekolah" },
-                        { left: "MAN (Metropolitan Area Network)", userRight: "Jangkauan antar gedung dalam satu kawasan kota" },
-                        { left: "WAN (Wide Area Network)", userRight: "Jangkauan luas mencakup antar kota, pulau, dan negara" }
-                    ] 
-                },
-                "1003_Informatika_A": { 
-                    0: 1, 
-                    1: [0, 1], 
-                    2: { 0: "BENAR", 1: "SALAH", 2: "BENAR" }, 
-                    3: ["Output (Keluaran)", "Storage (Penyimpanan)", "Input (Masukan)", "Process (Pemrosesan)"], 
-                    4: [
-                        { left: "LAN (Local Area Network)", userRight: "Jangkauan antar gedung dalam satu kawasan kota" },
-                        { left: "MAN (Metropolitan Area Network)", userRight: "Jangkauan lokal dalam satu ruangan, gedung, atau sekolah" },
-                        { left: "WAN (Wide Area Network)", userRight: "Jangkauan antar gedung dalam satu kawasan kota" }
-                    ] 
-                }
-            }
+            results: [],
+            studentAnswersMap: {}
         };
 
         // Cache respon API in-memory & Fast Request Queueing
@@ -920,7 +771,10 @@
                 const val = inp ? inp.value.trim() : '';
                 if (!val) return this.showToast('Harap isi ID / NIS / NIP terlebih dahulu!', 'warning');
 
-                const remoteRes = await apiCall('login', { id: val, deviceId: this.deviceFingerprint });
+                this.showToast('Menghubungkan ke database sekolah...', 'info');
+
+                // Autentikasi langsung ke database Google Spreadsheet
+                const remoteRes = await apiCall('login', { id: val, deviceId: this.deviceFingerprint }, 8500, true);
                 if (remoteRes && remoteRes.status === 'success') {
                     this.currentUser = remoteRes.data;
                     if (this.currentUser.role === 'teacher') {
@@ -932,23 +786,24 @@
                 } else if (remoteRes && remoteRes.status === 'error') {
                     this.showToast(remoteRes.message, 'error');
                 } else {
+                    // Fallback verifikasi lokal jika server sedang offline/timeout tanpa akun demo dummy
                     this.quickLogin(role, val);
                 }
             },
 
             quickLogin(role, id) {
                 if (role === 'student') {
-                    const st = DB.students.find(s => s.nis === id);
+                    const st = DB.students.find(s => String(s.nis).trim() === String(id).trim());
                     if (st) this.currentUser = { ...st, role: 'student' };
                 } else if (role === 'teacher') {
-                    const tc = DB.teachers.find(t => t.nip === id);
+                    const tc = DB.teachers.find(t => String(t.nip).trim() === String(id).trim());
                     if (tc) {
                         this.currentUser = { ...tc, role: 'teacher' };
                         const assignedSub = DB.subjects.find(s => String(s.teacherNip) === String(tc.nip) || s.id === tc.subjectId);
                         this.teacherSelectedSubject = assignedSub ? assignedSub.id : ('SUB-' + tc.nip);
                     }
                 } else {
-                    if (DB.admin && (DB.admin.id === id || id === 'ADMIN01')) {
+                    if (DB.admin && (DB.admin.id === id || id.toUpperCase() === 'ADMIN01')) {
                         this.currentUser = { ...DB.admin, role: 'admin' };
                     }
                 }
@@ -957,7 +812,7 @@
                     this.showToast(`Selamat datang ${this.currentUser.name}!`, 'success');
                     this.redirectRoleDashboard();
                 } else {
-                    this.showToast('ID Pengguna tidak terdaftar dalam sistem!', 'error');
+                    this.showToast('ID Pengguna tidak terdaftar dalam database Google Sheets sekolah!', 'error');
                 }
             },
 
