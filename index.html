@@ -193,20 +193,169 @@
     </div>
 
     <script>
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwPQ4HsaoqWwSSdLnahyMNZu8_L9wON43O8Ke1Y21tv-6x7sy5YhUE7c41m5lsZkPON/exec";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx9-FJt-CQwRRgj-9RoIMJ73Ln0yjrWf32QUBq4eMHcf9rJbu2Ifz0cHSLfPR_JBF9J/exec";
         const DB_SISTEM_ID = "1nD60VMcGXeEED5JJVVzZAbU7BmkyIOE7EZtHEnsUkac";
         const DB_SOAL_ID   = "14Iy4Y18ITNtWciKrhQIFd2o_aq9KW1ARKxwV2HqE8KU";
 
-        // Database dinamis yang murni bersumber dari Google Spreadsheet (Akun & data demo dummy dinonaktifkan/dikosongkan)
         const DB = {
             admin: { id: "ADMIN01", name: "Administrator Utama", role: "admin" },
-            teachers: [],
-            students: [],
-            subjects: [],
-            examPackages: {},
+            teachers: [
+                { nip: "19850715", name: "Budi Santoso, M.Kom", subject: "Informatika", subjectId: "SUB-19850715" },
+                { nip: "19900210", name: "Siti Nurhaliza, S.Pd", subject: "Matematika Peminatan", subjectId: "SUB-19900210" }
+            ],
+            students: [
+                { nis: "1001", name: "Ahmad Zaky", class: "XII MIPA 1", deviceId: null },
+                { nis: "1002", name: "Bunga Citra", class: "XII MIPA 2", deviceId: null },
+                { nis: "1003", name: "Candra Wijaya", class: "XII IPS 1", deviceId: null }
+            ],
+            subjects: [
+                {
+                    id: "SUB-19850715",
+                    name: "Informatika",
+                    teacherNip: "19850715",
+                    teacherName: "Budi Santoso, M.Kom",
+                    packages: ["A", "B", "C"],
+                    packageTokens: { "A": "TOK123", "B": "PBK123", "C": "PCK123" },
+                    packageDurations: { "A": 60, "B": 60, "C": 60 },
+                    packageNotes: {
+                        "A": "Kerjakan dengan teliti dan jujur. Wajib minimal 1 menit per soal. Periksa kembali jawaban sebelum mengirim.",
+                        "B": "Mencakup materi Jaringan Komputer, Topologi Jaringan, dan Algoritma Dasar.",
+                        "C": "Paket pengayaan materi semester ganjil."
+                    },
+                    packageRandomize: {
+                        "A": { questions: true, options: true },
+                        "B": { questions: false, options: false },
+                        "C": { questions: false, options: false }
+                    },
+                    durationMin: 60,
+                    finalizedPackages: ["A", "B"],
+                    publishedPackages: ["A", "B"]
+                },
+                {
+                    id: "SUB-19900210",
+                    name: "Matematika Peminatan",
+                    teacherNip: "19900210",
+                    teacherName: "Siti Nurhaliza, S.Pd",
+                    packages: ["A", "B"],
+                    packageTokens: { "A": "MAT123", "B": "MTK123" },
+                    packageDurations: { "A": 90, "B": 90 },
+                    packageNotes: {
+                        "A": "Sediakan kertas buram untuk coretan rumus limit trigonometri. Dilarang menggunakan kalkulator gawai.",
+                        "B": "Fokus pada bab Turunan Fungsi Trigonometri dan Aplikasi Nilai Maksimum/Minimum."
+                    },
+                    packageRandomize: {
+                        "A": { questions: true, options: true },
+                        "B": { questions: false, options: false }
+                    },
+                    durationMin: 90,
+                    finalizedPackages: ["A"],
+                    publishedPackages: ["A"]
+                }
+            ],
+            examPackages: {
+                "SUB-19850715": {
+                    "A": [
+                        {
+                            id: "Q_INF_A1",
+                            type: "PG",
+                            text: "Shortcut keyboard yang digunakan untuk menyalin (copy) objek/teks pada sistem operasi komputer adalah ....",
+                            image: "",
+                            options: ["Ctrl + V", "Ctrl + C", "Ctrl + X", "Ctrl + Z", "Ctrl + S"],
+                            correctKey: 1,
+                            weight: 20
+                        },
+                        {
+                            id: "Q_INF_A2",
+                            type: "PGK",
+                            text: "Pilihlah komponen perangkat keras yang tergolong sebagai Input Device (Perangkat Masukan)! (Pilih beberapa opsi)",
+                            image: "",
+                            options: ["Keyboard", "Monitor LED", "Mouse Optik", "Printer Laser", "Microphone"],
+                            correctKeys: [0, 2, 4],
+                            weight: 20
+                        },
+                        {
+                            id: "Q_INF_A3",
+                            type: "BS",
+                            text: "Tentukan nilai kebenaran untuk masing-masing pernyataan arsitektur komputer berikut:",
+                            image: "",
+                            statements: [
+                                "RAM bersifat volatile sehingga data hilang ketika daya listrik terputus.",
+                                "SSD memiliki kecepatan akses data yang lebih lambat dibanding HDD mekanik.",
+                                "Sistem Operasi berfungsi sebagai jembatan antara hardware dan pengguna."
+                            ],
+                            options: [
+                                "RAM bersifat volatile sehingga data hilang ketika daya listrik terputus.",
+                                "SSD memiliki kecepatan akses data yang lebih lambat dibanding HDD mekanik.",
+                                "Sistem Operasi berfungsi sebagai jembatan antara hardware dan pengguna."
+                            ],
+                            correctKey: { 0: "BENAR", 1: "SALAH", 2: "BENAR" },
+                            weight: 20
+                        },
+                        {
+                            id: "Q_INF_A4",
+                            type: "URUTAN",
+                            text: "Susunlah tahapan siklus pengolahan data (Information Processing Cycle) secara berurutan:",
+                            image: "",
+                            items: ["Input (Masukan)", "Process (Pemrosesan)", "Storage (Penyimpanan)", "Output (Keluaran)"],
+                            correctOrder: ["Input (Masukan)", "Process (Pemrosesan)", "Storage (Penyimpanan)", "Output (Keluaran)"],
+                            weight: 20
+                        },
+                        {
+                            id: "Q_INF_A5",
+                            type: "JODOH",
+                            text: "Pasangkan klasifikasi jaringan komputer berikut dengan jangkauan wilayahnya yang tepat:",
+                            image: "",
+                            pairs: [
+                                { left: "LAN (Local Area Network)", right: "Jangkauan lokal dalam satu ruangan, gedung, atau sekolah" },
+                                { left: "MAN (Metropolitan Area Network)", right: "Jangkauan antar gedung dalam satu kawasan kota" },
+                                { left: "WAN (Wide Area Network)", right: "Jangkauan luas mencakup antar kota, pulau, dan negara" }
+                            ],
+                            weight: 20
+                        }
+                    ]
+                }
+            },
             cheatLogs: [],
-            results: [],
-            studentAnswersMap: {}
+            results: [
+                { rowIdx: 2, nis: "1001", name: "Ahmad Zaky", class: "XII MIPA 1", subject: "Informatika", package: "A", scorePG: 100, totalScore: 100, status: "Selesai", submittedAt: "08:10:00" },
+                { rowIdx: 3, nis: "1002", name: "Bunga Citra", class: "XII MIPA 2", subject: "Informatika", package: "A", scorePG: 80, totalScore: 80, status: "Selesai", submittedAt: "08:12:00" },
+                { rowIdx: 4, nis: "1003", name: "Candra Wijaya", class: "XII IPS 1", subject: "Informatika", package: "A", scorePG: 40, totalScore: 40, status: "Selesai", submittedAt: "08:15:00" }
+            ],
+            studentAnswersMap: {
+                "1001_Informatika_A": { 
+                    0: 1, 
+                    1: [0, 2, 4], 
+                    2: { 0: "BENAR", 1: "SALAH", 2: "BENAR" }, 
+                    3: ["Input (Masukan)", "Process (Pemrosesan)", "Storage (Penyimpanan)", "Output (Keluaran)"], 
+                    4: [
+                        { left: "LAN (Local Area Network)", userRight: "Jangkauan lokal dalam satu ruangan, gedung, atau sekolah" },
+                        { left: "MAN (Metropolitan Area Network)", userRight: "Jangkauan antar gedung dalam satu kawasan kota" },
+                        { left: "WAN (Wide Area Network)", userRight: "Jangkauan luas mencakup antar kota, pulau, dan negara" }
+                    ] 
+                },
+                "1002_Informatika_A": { 
+                    0: 1, 
+                    1: [0, 2, 4], 
+                    2: { 0: "BENAR", 1: "SALAH", 2: "BENAR" }, 
+                    3: ["Input (Masukan)", "Process (Pemrosesan)", "Output (Keluaran)", "Storage (Penyimpanan)"], 
+                    4: [
+                        { left: "LAN (Local Area Network)", userRight: "Jangkauan lokal dalam satu ruangan, gedung, atau sekolah" },
+                        { left: "MAN (Metropolitan Area Network)", userRight: "Jangkauan antar gedung dalam satu kawasan kota" },
+                        { left: "WAN (Wide Area Network)", userRight: "Jangkauan luas mencakup antar kota, pulau, dan negara" }
+                    ] 
+                },
+                "1003_Informatika_A": { 
+                    0: 1, 
+                    1: [0, 1], 
+                    2: { 0: "BENAR", 1: "SALAH", 2: "BENAR" }, 
+                    3: ["Output (Keluaran)", "Storage (Penyimpanan)", "Input (Masukan)", "Process (Pemrosesan)"], 
+                    4: [
+                        { left: "LAN (Local Area Network)", userRight: "Jangkauan antar gedung dalam satu kawasan kota" },
+                        { left: "MAN (Metropolitan Area Network)", userRight: "Jangkauan lokal dalam satu ruangan, gedung, atau sekolah" },
+                        { left: "WAN (Wide Area Network)", userRight: "Jangkauan antar gedung dalam satu kawasan kota" }
+                    ] 
+                }
+            }
         };
 
         // Cache respon API in-memory & Fast Request Queueing
@@ -276,7 +425,6 @@
             isInternalAction: false,
             questionImageVisibility: {},
             
-            // Teacher State
             teacherActiveTab: 'manual', 
             teacherSelectedSubject: 'SUB-19850715',
             teacherSelectedPkg: 'A',
@@ -286,7 +434,6 @@
             teacherDataLastFetched: 0,
             teacherSelectedResultNis: null,
 
-            // Admin State
             adminActiveTab: 'publication',
             adminResultFilterClass: 'all',
             adminResultFilterSubject: 'all',
@@ -296,9 +443,8 @@
             isAdminSyncing: false,
             adminLastSyncTime: null,
             adminLatency: '< 1s',
-            adminFetchDbSubView: 'overview',
+            adminFetchDbSubView: 'all_sections',
 
-            // Dynamic Form State for Manual Input
             manualFormState: {
                 pgOptions: ["", "", "", ""],
                 bsStatements: ["Pernyataan 1", "Pernyataan 2"],
@@ -310,7 +456,6 @@
                 ]
             },
 
-            // Dynamic State for Edit Question Modal
             editFormState: {
                 qId: null,
                 type: 'PG',
@@ -329,7 +474,7 @@
                     this.generateDeviceFingerprint();
                     this.setupSecurityListeners();
                     this.ensureSubjectsUpToDate();
-                    this.syncUsersFromBackend();
+                    this.syncAllDataFromSpreadsheetLive(true);
                     this.setupAdminStorageListener();
                     this.renderLoginView();
                 } catch(e) {
@@ -338,10 +483,164 @@
                 }
             },
 
-            saveCheatLogsToLocal() {
+            async syncAllDataFromSpreadsheetLive(isSilent = false) {
                 try {
-                    localStorage.setItem('EDUGUARD_CHEAT_LOGS', JSON.stringify(DB.cheatLogs));
-                } catch(e) {}
+                    const res = await apiCall('syncAllData', { target: 'ALL' }, 9000, true);
+                    if (res && res.status === 'success' && res.data) {
+                        const d = res.data;
+
+                        // 1. Sinkronisasi Data Pengguna Lintas Perangkat
+                        if (Array.isArray(d.users) && d.users.length > 0) {
+                            const st = [];
+                            const tc = [];
+                            d.users.forEach(u => {
+                                const uId = String(u.id || u.ID_NIS_NIP || u.nis || u.nip || '').trim();
+                                const uName = String(u.name || u.NAME || '').trim();
+                                const uRole = String(u.role || u.ROLE || 'student').trim().toLowerCase();
+                                const uClass = String(u.class || u.CLASS || u.subject || u.subjectName || '-').trim();
+                                const uDev = u.deviceId !== undefined ? u.deviceId : (u.DEVICE_ID || null);
+
+                                if (uRole === 'teacher' || uRole === 'guru') {
+                                    tc.push({ nip: uId, name: uName, subject: uClass || 'Mapel', subjectId: 'SUB-' + uId });
+                                } else {
+                                    st.push({ nis: uId, name: uName, class: uClass, deviceId: uDev });
+                                }
+                            });
+                            if (st.length > 0) DB.students = st;
+                            if (tc.length > 0) DB.teachers = tc;
+                        }
+
+                        // 2. Sinkronisasi Mata Pelajaran, Token, Durasi, Randomize, dan Status Terbit
+                        if (Array.isArray(d.subjects) && d.subjects.length > 0) {
+                            DB.subjects = d.subjects;
+                            this.ensureSubjectsUpToDate();
+                        }
+
+                        // 3. Sinkronisasi Bank Butir Soal Lintas Perangkat
+                        if (d.allExamPackagesBySubject && typeof d.allExamPackagesBySubject === 'object') {
+                            Object.keys(d.allExamPackagesBySubject).forEach(sKey => {
+                                if (!DB.examPackages[sKey]) DB.examPackages[sKey] = {};
+                                Object.assign(DB.examPackages[sKey], d.allExamPackagesBySubject[sKey]);
+                            });
+                        }
+                        if (Array.isArray(d.questions) && d.questions.length > 0) {
+                            d.questions.forEach(q => {
+                                const subId = q.subjectId || (DB.subjects.length > 0 ? DB.subjects[0].id : 'SUB-DEFAULT');
+                                const pkg = q.package || 'A';
+                                if (!DB.examPackages[subId]) DB.examPackages[subId] = {};
+                                if (!DB.examPackages[subId][pkg]) DB.examPackages[subId][pkg] = [];
+                                const exIdx = DB.examPackages[subId][pkg].findIndex(it => it.id === q.id);
+                                if (exIdx >= 0) DB.examPackages[subId][pkg][exIdx] = q;
+                                else DB.examPackages[subId][pkg].push(q);
+                            });
+                        }
+
+                        // 4. Sinkronisasi Rekap Hasil Nilai Siswa
+                        if (Array.isArray(d.results) && d.results.length > 0) {
+                            DB.results = d.results;
+                        }
+
+                        // 5. Sinkronisasi Lembar Jawaban Siswa
+                        if (d.answersMap && typeof d.answersMap === 'object') {
+                            if (!DB.studentAnswersMap) DB.studentAnswersMap = {};
+                            Object.assign(DB.studentAnswersMap, d.answersMap);
+                        }
+
+                        // 6. Sinkronisasi Log Pelanggaran Real-time
+                        if (Array.isArray(d.cheatLogs)) {
+                            DB.cheatLogs = d.cheatLogs;
+                            this.saveCheatLogsToLocal();
+                        }
+
+                        if (!isSilent) this.showToast('Data Google Spreadsheet berhasil dimuat real-time!', 'success');
+                    }
+                } catch(e) {
+                    console.warn("Gagal sinkronisasi data awal Spreadsheet:", e);
+                }
+            },
+            async startStudentExam(subjectId, targetPkg) {
+                const tokenInputEl = document.getElementById(`token-${subjectId}-${targetPkg}`);
+                const tokenInput = tokenInputEl ? tokenInputEl.value.trim().toUpperCase() : '';
+                
+                // Ambil data subject & token real-time langsung dari Spreadsheet
+                let subjects = DB.subjects;
+                const remoteSub = await apiCall('getSubjects', {}, 8500, true);
+                if (remoteSub && remoteSub.status === 'success' && Array.isArray(remoteSub.data) && remoteSub.data.length > 0) {
+                    subjects = remoteSub.data;
+                    DB.subjects = subjects;
+                }
+
+                const subject = subjects.find(s => s.id === subjectId);
+                if (!subject) return;
+
+                if (!tokenInput) return this.showToast(`Harap masukkan Token untuk Paket ${targetPkg}!`, 'warning');
+                if (this.hasStudentCompletedPackage(subject.name, targetPkg)) return this.showToast(`Anda sudah menyelesaikan Paket ${targetPkg} ini!`, 'error');
+
+                const expectedToken = (subject.packageTokens && subject.packageTokens[targetPkg]) || subject.token || '';
+                if (tokenInput !== expectedToken.toUpperCase()) {
+                    return this.showToast(`Token untuk Paket ${targetPkg} salah! Silakan minta token ke Pengawas.`, 'error');
+                }
+
+                let questions = (DB.examPackages[subjectId] && DB.examPackages[subjectId][targetPkg]) || [];
+                // Ambil butir soal langsung dari spreadsheet real-time
+                const remoteQ = await apiCall('getQuestions', { subjectId: subjectId, package: targetPkg }, 8500, true);
+                if (remoteQ && remoteQ.status === 'success' && Array.isArray(remoteQ.data) && remoteQ.data.length > 0) {
+                    questions = remoteQ.data;
+                    if (!DB.examPackages[subjectId]) DB.examPackages[subjectId] = {};
+                    DB.examPackages[subjectId][targetPkg] = questions;
+                }
+
+                if (questions.length === 0) return this.showToast(`Belum ada butir soal pada Paket ${targetPkg}!`, 'warning');
+
+                const randConf = (subject.packageRandomize && subject.packageRandomize[targetPkg]) || { questions: true, options: true };
+
+                let preparedQuestions = questions.map((q, origIdx) => {
+                    const cloned = JSON.parse(JSON.stringify(q));
+                    cloned.originalIndex = origIdx;
+
+                    if (randConf.options && cloned.type === 'PG' && Array.isArray(cloned.options)) {
+                        const indexedOpts = cloned.options.map((opt, oIdx) => ({
+                            text: opt,
+                            img: (cloned.optionImages && cloned.optionImages[oIdx]) || null,
+                            isKey: cloned.correctKey === oIdx
+                        }));
+                        const shuffledOpts = this.shuffleArray(indexedOpts);
+                        cloned.options = shuffledOpts.map(o => o.text);
+                        cloned.optionImages = shuffledOpts.map(o => o.img);
+                        cloned.correctKey = shuffledOpts.findIndex(o => o.isKey);
+                    }
+                    return cloned;
+                });
+
+                if (randConf.questions) {
+                    preparedQuestions = this.shuffleArray(preparedQuestions);
+                }
+
+                this.requestFullScreenMode();
+                const pkgDuration = (subject.packageDurations && subject.packageDurations[targetPkg]) || subject.durationMin || 60;
+                const resolvedTeacherName = this.getTeacherDisplayName(subject);
+                const pkgNote = (subject.packageNotes && subject.packageNotes[targetPkg]) ? subject.packageNotes[targetPkg] : '';
+
+                this.activeExam = {
+                    subjectId: subject.id,
+                    subjectName: subject.name,
+                    teacherName: resolvedTeacherName,
+                    package: targetPkg,
+                    packageNote: pkgNote,
+                    durationMin: pkgDuration,
+                    questions: preparedQuestions,
+                    currentQuestionIdx: 0,
+                    questionTimeSpent: {}
+                };
+
+                this.userAnswers = {};
+                this.violationsCount = 0;
+                this.questionImageVisibility = {};
+                this.remainingSeconds = pkgDuration * 60;
+
+                this.renderExamInterface();
+                this.startTimer();
+                this.showToast('Mode Ujian Lockdown Aktif! Wajib minimal 1 menit per soal.', 'info');
             },
 
             loadCheatLogsFromLocal() {
@@ -430,7 +729,6 @@
                     }
                 };
 
-                // Blokir klik kanan, copy, paste, cut, drag, selection
                 document.addEventListener('contextmenu', preventProtectedEvent, { passive: false });
                 document.addEventListener('copy', preventProtectedEvent, { passive: false });
                 document.addEventListener('paste', preventProtectedEvent, { passive: false });
@@ -472,7 +770,6 @@
                     }
                 });
 
-                // Deteksi Anti Split Screen
                 window.addEventListener('resize', () => {
                     if (!this.activeExam || this.isInternalAction) return;
                     const screenHeight = window.screen.availHeight || window.screen.height;
@@ -486,7 +783,6 @@
                     }
                 });
 
-                // Anti Screenshot & PrintScreen Clipboard Eraser
                 window.addEventListener('keyup', (e) => {
                     if (!this.activeExam) return;
                     const key = e.key || e.keyCode;
@@ -771,10 +1067,7 @@
                 const val = inp ? inp.value.trim() : '';
                 if (!val) return this.showToast('Harap isi ID / NIS / NIP terlebih dahulu!', 'warning');
 
-                this.showToast('Menghubungkan ke database sekolah...', 'info');
-
-                // Autentikasi langsung ke database Google Spreadsheet
-                const remoteRes = await apiCall('login', { id: val, deviceId: this.deviceFingerprint }, 8500, true);
+                const remoteRes = await apiCall('login', { id: val, deviceId: this.deviceFingerprint });
                 if (remoteRes && remoteRes.status === 'success') {
                     this.currentUser = remoteRes.data;
                     if (this.currentUser.role === 'teacher') {
@@ -786,24 +1079,23 @@
                 } else if (remoteRes && remoteRes.status === 'error') {
                     this.showToast(remoteRes.message, 'error');
                 } else {
-                    // Fallback verifikasi lokal jika server sedang offline/timeout tanpa akun demo dummy
                     this.quickLogin(role, val);
                 }
             },
 
             quickLogin(role, id) {
                 if (role === 'student') {
-                    const st = DB.students.find(s => String(s.nis).trim() === String(id).trim());
+                    const st = DB.students.find(s => s.nis === id);
                     if (st) this.currentUser = { ...st, role: 'student' };
                 } else if (role === 'teacher') {
-                    const tc = DB.teachers.find(t => String(t.nip).trim() === String(id).trim());
+                    const tc = DB.teachers.find(t => t.nip === id);
                     if (tc) {
                         this.currentUser = { ...tc, role: 'teacher' };
                         const assignedSub = DB.subjects.find(s => String(s.teacherNip) === String(tc.nip) || s.id === tc.subjectId);
                         this.teacherSelectedSubject = assignedSub ? assignedSub.id : ('SUB-' + tc.nip);
                     }
                 } else {
-                    if (DB.admin && (DB.admin.id === id || id.toUpperCase() === 'ADMIN01')) {
+                    if (DB.admin && (DB.admin.id === id || id === 'ADMIN01')) {
                         this.currentUser = { ...DB.admin, role: 'admin' };
                     }
                 }
@@ -812,7 +1104,7 @@
                     this.showToast(`Selamat datang ${this.currentUser.name}!`, 'success');
                     this.redirectRoleDashboard();
                 } else {
-                    this.showToast('ID Pengguna tidak terdaftar dalam database Google Sheets sekolah!', 'error');
+                    this.showToast('ID Pengguna tidak terdaftar dalam sistem!', 'error');
                 }
             },
 
@@ -1070,7 +1362,6 @@
                 const container = document.getElementById('studentPublishedExamsContainer');
                 if (!container) return;
 
-                // Tampilkan data lokal/cache secara instan (Zero Wait Time)
                 const renderSubjects = (subjects) => {
                     const publishedList = subjects.filter(sub => sub.publishedPackages && sub.publishedPackages.length > 0);
                     if (publishedList.length === 0) {
@@ -1184,10 +1475,8 @@
                     }).join('');
                 };
 
-                // Render cepat dari state memori terlebih dahulu
                 renderSubjects(DB.subjects);
 
-                // Sinkronisasi data terkini dari server di latar belakang
                 const remoteSub = await apiCall('getSubjects', {}, 4000);
                 if (remoteSub && remoteSub.status === 'success' && Array.isArray(remoteSub.data) && remoteSub.data.length > 0) {
                     if (JSON.stringify(DB.subjects) !== JSON.stringify(remoteSub.data)) {
@@ -1333,7 +1622,6 @@
 
                 body.innerHTML = `
                     <div class="mobile-shell bg-white border border-slate-200 rounded-3xl flex flex-col justify-between p-4 sm:p-5 shadow-xl my-2 anti-screenshot-shield relative overflow-hidden">
-                        <!-- WATERMARK SECURITY SCREEN -->
                         <div class="watermark-overlay">
                             ${this.currentUser.name} - ${this.currentUser.nis} - SMAN 1 KUTOWINANGUN
                         </div>
@@ -1399,7 +1687,6 @@
                                     <span class="text-[10px] text-slate-400 font-bold">Bobot: ${q.weight || 20} Poin</span>
                                 </div>
 
-                                <!-- KARTU GAMBAR SOAL DENGAN TOMBOL TUTUP / SEMBUNYIKAN / PERBESAR -->
                                 ${formattedQImg ? `
                                     <div class="my-3 bg-white border border-slate-200 rounded-2xl p-2.5 shadow-sm space-y-2">
                                         <div class="flex items-center justify-between border-b pb-1.5 px-1">
@@ -2157,7 +2444,6 @@
                 body.innerHTML = `
                     <div class="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-5">
                         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-                            <!-- SISI KIRI: Identitas Panel Guru Pengampu -->
                             <div class="flex-shrink-0">
                                 <div class="flex items-center gap-2">
                                     <h2 class="text-lg sm:text-xl font-extrabold text-slate-800 flex items-center gap-2">
@@ -2170,15 +2456,12 @@
                                 <p class="text-xs text-slate-500 mt-0.5">${tc.name} | NIP: ${tc.nip}</p>
                             </div>
                             
-                            <!-- SISI KANAN (RATA KANAN): Mapel Guru & Kumpulan Paket Soal -->
                             <div class="md:ml-auto flex flex-col sm:flex-row items-start sm:items-center justify-end gap-2.5 flex-wrap">
-                                <!-- Badge Mapel Guru -->
                                 <div class="px-3.5 py-2 border border-purple-200 rounded-xl text-xs font-bold text-purple-900 bg-purple-50 flex items-center gap-1.5 shadow-sm">
                                     <i class="fa-solid fa-book-bookmark text-purple-600"></i>
                                     <span>Mapel: <strong class="text-purple-950 font-black">${subjectObj.name}</strong></span>
                                 </div>
 
-                                <!-- Kumpulan Paket Soal Guru -->
                                 <div class="bg-slate-100 p-1 rounded-xl flex text-xs font-bold items-center gap-1 shadow-inner">
                                     ${subjectObj.packages.map(p => `
                                         <button onclick="EduGuard.selectTeacherPackageOnly('${p}')" class="px-3 py-1.5 rounded-lg transition ${p === activePkg ? 'bg-purple-600 text-white shadow-md font-extrabold' : 'text-slate-600 hover:text-purple-600'}">
@@ -2192,7 +2475,6 @@
                             </div>
                         </div>
 
-                        <!-- MODUL PENGATURAN TOKEN & DURASI PAKET SOAL -->
                         <div class="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
@@ -2228,7 +2510,6 @@
                             </div>
                         </div>
 
-                        <!-- Status Akumulasi Poin Paket -->
                         <div class="flex items-center justify-between p-3 rounded-2xl border ${totalWeight === 100 ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'} text-xs">
                             <div class="flex items-center gap-2">
                                 <i class="fa-solid ${totalWeight === 100 ? 'fa-circle-check text-emerald-600' : 'fa-triangle-exclamation text-amber-600'} text-base"></i>
@@ -2247,7 +2528,6 @@
                             </div>
                         </div>
 
-                        <!-- Sub-Navigation Tabs Guru -->
                         <div class="flex overflow-x-auto gap-2 border-b border-slate-100 pb-2 text-xs font-bold">
                             <button onclick="EduGuard.switchTeacherTab('manual')" class="px-3 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition ${activeTab === 'manual' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'text-slate-500 hover:bg-slate-50'}">
                                 <i class="fa-solid fa-pen-to-square"></i> 1. Input Soal Manual & Simbol
@@ -2720,14 +3000,12 @@
                         </div>
                     `;
                 } else if (tab === 'results') {
-                    // TAB REKAP NILAI SISWA DENGAN FILTER KELAS & PAKET
                     const activeSubjectObj = DB.subjects.find(s => s.id === subjectId);
                     const subjectName = activeSubjectObj ? activeSubjectObj.name : 'Mata Pelajaran';
                     
                     const fClass = this.teacherResultFilterClass || 'all';
                     const fPkg = this.teacherResultFilterPackage || 'all';
 
-                    // Kumpulan unik kelas dan paket untuk opsi dropdown filter
                     const baseResults = DB.results.filter(r => !r.subject || r.subject === subjectName || subjectName.includes(r.subject) || r.subject.includes(subjectName));
                     const sourceResults = baseResults.length > 0 ? baseResults : DB.results;
 
@@ -2762,7 +3040,6 @@
                                 </div>
                             </div>
 
-                            <!-- FILTER SORT BY KELAS & PAKET GURU -->
                             <div class="bg-slate-50 border border-purple-100 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
                                 <div class="flex items-center gap-2">
                                     <span class="text-xs font-bold text-purple-950 flex items-center gap-1.5">
@@ -3827,7 +4104,7 @@
                 }
             },
 
-            saveManualQuestion() {
+            async saveManualQuestion() {
                 const subId = this.teacherSelectedSubject;
                 const pkg = this.teacherSelectedPkg;
                 const type = document.getElementById('manualType').value;
@@ -3925,9 +4202,11 @@
                 if (!DB.examPackages[subId][pkg]) DB.examPackages[subId][pkg] = [];
 
                 DB.examPackages[subId][pkg].push(newQ);
-                apiCall('saveQuestionsBatch', { subjectId: subId, package: pkg, questions: [newQ] });
+                
+                // Simpan langsung ke Google Spreadsheet real-time
+                await apiCall('saveQuestionsBatch', { subjectId: subId, package: pkg, questions: [newQ] }, 9500, true);
 
-                this.showToast(`Soal berhasil disimpan ke Paket ${pkg}!`, 'success');
+                this.showToast(`Soal berhasil disimpan real-time ke Google Spreadsheet (Paket ${pkg})!`, 'success');
                 this.switchTeacherTab('review');
             },
 
@@ -4003,6 +4282,89 @@
                     <button onclick="EduGuard.updateQuestion('${qId}')" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md">Simpan Perubahan</button>
                 `;
                 this.showModal(`Edit Butir Soal (${q.type})`, body, footer);
+            },
+
+            async updateQuestion(qId) {
+                const subId = this.teacherSelectedSubject;
+                const pkg = this.teacherSelectedPkg;
+                const newText = document.getElementById('editModalText').value.trim();
+                const newImg = document.getElementById('editModalImage').value.trim();
+                const newWeight = Number(document.getElementById('editModalWeight').value || 20);
+
+                const q = DB.examPackages[subId][pkg].find(item => item.id === qId);
+                if (q) {
+                    q.text = newText;
+                    q.image = newImg || null;
+                    q.weight = newWeight;
+
+                    if (q.type === 'PG') {
+                        const opts = [];
+                        this.editFormState.options.forEach((_, i) => {
+                            const val = document.getElementById(`editOpt_${i}`)?.value.trim() || '';
+                            if (val) opts.push(val);
+                        });
+                        q.options = opts;
+                        const radios = document.getElementsByName('editPgCorrect');
+                        for (let r of radios) { if (r.checked) q.correctKey = Number(r.value); }
+                    } else if (q.type === 'PGK') {
+                        const opts = [];
+                        const keys = [];
+                        this.editFormState.options.forEach((_, i) => {
+                            const val = document.getElementById(`editOpt_${i}`)?.value.trim() || '';
+                            if (val) {
+                                opts.push(val);
+                                if (document.getElementById(`editPgkCheck_${i}`)?.checked) keys.push(opts.length - 1);
+                            }
+                        });
+                        q.options = opts;
+                        q.correctKeys = keys;
+                    } else if (q.type === 'BS') {
+                        const stList = [];
+                        const keyMap = {};
+                        this.editFormState.statements.forEach((_, i) => {
+                            const tVal = document.getElementById(`editBsKasus_${i}`)?.value.trim() || '';
+                            const kVal = document.getElementById(`editBsKey_${i}`)?.value || 'BENAR';
+                            if (tVal) {
+                                stList.push(tVal);
+                                keyMap[stList.length - 1] = kVal;
+                            }
+                        });
+                        q.statements = stList;
+                        q.options = stList;
+                        q.correctKey = keyMap;
+                    } else if (q.type === 'URUTAN') {
+                        const items = [];
+                        this.editFormState.orderItems.forEach((_, i) => {
+                            const val = document.getElementById(`editUrutan_${i}`)?.value.trim() || '';
+                            if (val) items.push(val);
+                        });
+                        q.items = items;
+                        q.correctOrder = [...items];
+                    } else if (q.type === 'JODOH') {
+                        const pairs = [];
+                        this.editFormState.matchPairs.forEach((_, i) => {
+                            const l = document.getElementById(`editJodohLeft_${i}`)?.value.trim() || '';
+                            const r = document.getElementById(`editJodohRight_${i}`)?.value.trim() || '';
+                            if (l && r) pairs.push({ left: l, right: r });
+                        });
+                        q.pairs = pairs;
+                    }
+
+                    // Sinkronisasi update langsung ke Spreadsheet
+                    await apiCall('saveQuestionsBatch', { subjectId: subId, package: pkg, questions: [q] }, 9500, true);
+                }
+                this.closeModal();
+                this.renderTeacherDashboard();
+                this.showToast('Soal berhasil diperbarui di Google Spreadsheet!', 'success');
+            },
+
+            async deleteQuestion(qId) {
+                const subId = this.teacherSelectedSubject;
+                const pkg = this.teacherSelectedPkg;
+                DB.examPackages[subId][pkg] = DB.examPackages[subId][pkg].filter(item => item.id !== qId);
+                await apiCall('deleteQuestion', { questionId: qId }, 9500, true);
+                this.renderTeacherDashboard();
+                this.showToast('Soal berhasil dihapus dari Google Spreadsheet.', 'info');
             },
 
             getEditModalDynamicFieldsHTML() {
@@ -4199,88 +4561,6 @@
                 }
             },
 
-            updateQuestion(qId) {
-                const subId = this.teacherSelectedSubject;
-                const pkg = this.teacherSelectedPkg;
-                const newText = document.getElementById('editModalText').value.trim();
-                const newImg = document.getElementById('editModalImage').value.trim();
-                const newWeight = Number(document.getElementById('editModalWeight').value || 20);
-
-                const q = DB.examPackages[subId][pkg].find(item => item.id === qId);
-                if (q) {
-                    q.text = newText;
-                    q.image = newImg || null;
-                    q.weight = newWeight;
-
-                    if (q.type === 'PG') {
-                        const opts = [];
-                        this.editFormState.options.forEach((_, i) => {
-                            const val = document.getElementById(`editOpt_${i}`)?.value.trim() || '';
-                            if (val) opts.push(val);
-                        });
-                        q.options = opts;
-                        const radios = document.getElementsByName('editPgCorrect');
-                        for (let r of radios) { if (r.checked) q.correctKey = Number(r.value); }
-                    } else if (q.type === 'PGK') {
-                        const opts = [];
-                        const keys = [];
-                        this.editFormState.options.forEach((_, i) => {
-                            const val = document.getElementById(`editOpt_${i}`)?.value.trim() || '';
-                            if (val) {
-                                opts.push(val);
-                                if (document.getElementById(`editPgkCheck_${i}`)?.checked) keys.push(opts.length - 1);
-                            }
-                        });
-                        q.options = opts;
-                        q.correctKeys = keys;
-                    } else if (q.type === 'BS') {
-                        const stList = [];
-                        const keyMap = {};
-                        this.editFormState.statements.forEach((_, i) => {
-                            const tVal = document.getElementById(`editBsKasus_${i}`)?.value.trim() || '';
-                            const kVal = document.getElementById(`editBsKey_${i}`)?.value || 'BENAR';
-                            if (tVal) {
-                                stList.push(tVal);
-                                keyMap[stList.length - 1] = kVal;
-                            }
-                        });
-                        q.statements = stList;
-                        q.options = stList;
-                        q.correctKey = keyMap;
-                    } else if (q.type === 'URUTAN') {
-                        const items = [];
-                        this.editFormState.orderItems.forEach((_, i) => {
-                            const val = document.getElementById(`editUrutan_${i}`)?.value.trim() || '';
-                            if (val) items.push(val);
-                        });
-                        q.items = items;
-                        q.correctOrder = [...items];
-                    } else if (q.type === 'JODOH') {
-                        const pairs = [];
-                        this.editFormState.matchPairs.forEach((_, i) => {
-                            const l = document.getElementById(`editJodohLeft_${i}`)?.value.trim() || '';
-                            const r = document.getElementById(`editJodohRight_${i}`)?.value.trim() || '';
-                            if (l && r) pairs.push({ left: l, right: r });
-                        });
-                        q.pairs = pairs;
-                    }
-
-                    apiCall('saveQuestionsBatch', { subjectId: subId, package: pkg, questions: [q] });
-                }
-                this.closeModal();
-                this.renderTeacherDashboard();
-                this.showToast('Soal berhasil diperbarui!', 'success');
-            },
-
-            deleteQuestion(qId) {
-                const subId = this.teacherSelectedSubject;
-                const pkg = this.teacherSelectedPkg;
-                DB.examPackages[subId][pkg] = DB.examPackages[subId][pkg].filter(item => item.id !== qId);
-                apiCall('deleteQuestion', { questionId: qId });
-                this.renderTeacherDashboard();
-                this.showToast('Soal berhasil dihapus.', 'info');
-            },
-
             async toggleTeacherFinalize(pkg) {
                 const subId = this.teacherSelectedSubject;
                 const subject = DB.subjects.find(s => s.id === subId);
@@ -4291,7 +4571,7 @@
                 if (idx >= 0) subject.finalizedPackages.splice(idx, 1);
                 else subject.finalizedPackages.push(pkg);
 
-                await apiCall('toggleFinalize', { subjectId: subId, package: pkg });
+                await apiCall('toggleFinalize', { subjectId: subId, package: pkg }, 9000, true);
                 this.showToast('Status finalisasi diperbarui!', 'success');
                 this.renderTeacherDashboard();
             },
@@ -4925,7 +5205,6 @@
                 if (res && res.status === 'success' && res.data) {
                     const d = res.data;
 
-                    // 1. Sinkronisasi Data Pengguna dengan fallback case-insensitive
                     if (d.users && Array.isArray(d.users)) {
                         const st = [];
                         const tc = [];
@@ -4946,7 +5225,6 @@
                         if (tc.length > 0) DB.teachers = tc;
                     }
 
-                    // 2. Sinkronisasi Data Mata Pelajaran dengan fallback struktur Sheet SUBJECTS
                     if (d.subjects && Array.isArray(d.subjects) && d.subjects.length > 0) {
                         DB.subjects = d.subjects.map(s => {
                             let pkgs = s.packages || s.PACKAGES || ['A', 'B', 'C'];
@@ -4992,7 +5270,6 @@
                         this.ensureSubjectsUpToDate();
                     }
 
-                    // 3. Sinkronisasi Bank Butir Soal secara Menyeluruh (By Subject, By Package, dan Flat List)
                     if (d.allExamPackagesBySubject && typeof d.allExamPackagesBySubject === 'object') {
                         Object.keys(d.allExamPackagesBySubject).forEach(sKey => {
                             if (!DB.examPackages[sKey]) DB.examPackages[sKey] = {};
@@ -5019,7 +5296,6 @@
                         });
                     }
 
-                    // 4. Sinkronisasi Hasil Nilai Siswa dengan normalisasi nama kolom
                     if (d.results && Array.isArray(d.results)) {
                         DB.results = d.results.map((r, rIdx) => ({
                             rowIdx: r.rowIdx || (rIdx + 2),
@@ -5035,13 +5311,11 @@
                         }));
                     }
 
-                    // 5. Sinkronisasi Lembar Jawaban Siswa
                     if (d.answersMap && typeof d.answersMap === 'object') {
                         if (!DB.studentAnswersMap) DB.studentAnswersMap = {};
                         Object.assign(DB.studentAnswersMap, d.answersMap);
                     }
 
-                    // 6. Sinkronisasi Log Pelanggaran
                     if (d.cheatLogs && Array.isArray(d.cheatLogs)) {
                         DB.cheatLogs = d.cheatLogs.map(l => ({
                             timestamp: l.timestamp || l.TIMESTAMP || '-',
@@ -5560,11 +5834,9 @@
             renderAdminFetchDatabaseAllTab() {
                 const currentSubView = this.adminFetchDbSubView || 'all_sections';
 
-                // Ekstraksi seluruh butir soal secara komprehensif dari semua mapel & paket
                 const allQuestionsList = [];
                 const registeredSubIds = new Set();
 
-                // 1. Ekstraksi dari DB.examPackages
                 Object.entries(DB.examPackages).forEach(([sId, pMap]) => {
                     registeredSubIds.add(sId);
                     const subObj = DB.subjects.find(s => 
@@ -5613,7 +5885,6 @@
 
                 return `
                     <div class="space-y-5 max-w-6xl">
-                        <!-- BANNER HEADER REALTIME SYNC -->
                         <div class="bg-gradient-to-r from-emerald-700 via-teal-800 to-slate-900 text-white p-5 rounded-2xl shadow-md">
                             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div>
@@ -5636,7 +5907,6 @@
                             </div>
                         </div>
 
-                        <!-- 4 KARTU STATISTIK KESELURUHAN DATA -->
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             <div class="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
                                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Pengguna</span>
@@ -5660,7 +5930,6 @@
                             </div>
                         </div>
 
-                        <!-- NAVIGASI FILTER TAMPILAN KESELURUHAN ATAU SPESIFIK -->
                         <div class="bg-slate-50 border border-slate-200 p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
                             <div class="flex items-center gap-1.5 flex-wrap">
                                 <span class="text-xs font-black text-slate-700 mr-2 flex items-center gap-1">
@@ -5692,12 +5961,10 @@
                             </div>
                         </div>
 
-                        <!-- WADAH PENAMPIL DATA DINAMIS -->
                         <div id="adminFetchDbDisplayContainer" class="space-y-6">
                             ${this.getAdminFetchDbSubViewHTML(currentSubView, allQuestionsList)}
                         </div>
 
-                        <!-- BAR INDIKATOR STATUS INTEGRITAS SERVER SPREADSHEET -->
                         <div class="bg-white p-4 rounded-2xl border border-slate-200 text-xs shadow-sm">
                             <span class="font-bold text-slate-700 block mb-1.5">Status Koneksi Database Google Spreadsheet:</span>
                             <div class="p-3 bg-slate-900 text-emerald-400 font-sans rounded-xl text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -6011,7 +6278,6 @@
                 if (view === 'results') return renderResultsSection();
                 if (view === 'cheat') return renderCheatSection();
 
-                // Tampilan Keseluruhan Sekaligus (All Sections)
                 return `
                     <div class="space-y-6">
                         ${renderUsersSection()}
@@ -6027,19 +6293,14 @@
                 if (!isSilent) this.showToast(`Memulai penarikan data database (${target}) dari Google Sheets...`, 'info');
                 const startTime = performance.now();
                 
-                // Panggil syncAllData dengan bypass cache aktif untuk mengambil live spreadsheet data
                 const res = await apiCall('syncAllData', { target: target }, 8900, true);
                 const elapsedSec = ((performance.now() - startTime) / 1000).toFixed(2);
                 this.adminLatency = `${elapsedSec}s`;
                 this.adminLastSyncTime = new Date().toLocaleTimeString();
 
-                let dataReceived = false;
-
                 if (res && res.status === 'success' && res.data) {
                     const d = res.data;
-                    dataReceived = true;
 
-                    // 1. Sinkronisasi Data Pengguna
                     if (d.users && Array.isArray(d.users)) {
                         const st = [];
                         const tc = [];
@@ -6060,7 +6321,6 @@
                         if (tc.length > 0) DB.teachers = tc;
                     }
 
-                    // 2. Sinkronisasi Data Mata Pelajaran Langsung dari Sheet SUBJECTS
                     if (d.subjects && Array.isArray(d.subjects) && d.subjects.length > 0) {
                         DB.subjects = d.subjects.map(s => {
                             let pkgs = s.packages || s.PACKAGES || ['A', 'B', 'C'];
@@ -6106,7 +6366,6 @@
                         this.ensureSubjectsUpToDate();
                     }
 
-                    // 3. Sinkronisasi Bank Butir Soal Langsung dari Sheet QUESTIONS
                     if (d.allExamPackagesBySubject && typeof d.allExamPackagesBySubject === 'object' && Object.keys(d.allExamPackagesBySubject).length > 0) {
                         Object.keys(d.allExamPackagesBySubject).forEach(sKey => {
                             if (!DB.examPackages[sKey]) DB.examPackages[sKey] = {};
@@ -6133,7 +6392,6 @@
                         });
                     }
 
-                    // 4. Sinkronisasi Hasil Nilai Siswa Langsung dari Sheet RESULTS
                     if (d.results && Array.isArray(d.results)) {
                         DB.results = d.results.map((r, rIdx) => ({
                             rowIdx: r.rowIdx || (rIdx + 2),
@@ -6149,13 +6407,11 @@
                         }));
                     }
 
-                    // 5. Sinkronisasi Lembar Jawaban Siswa
                     if (d.answersMap && typeof d.answersMap === 'object') {
                         if (!DB.studentAnswersMap) DB.studentAnswersMap = {};
                         Object.assign(DB.studentAnswersMap, d.answersMap);
                     }
 
-                    // 6. Sinkronisasi Log Pelanggaran
                     if (d.cheatLogs && Array.isArray(d.cheatLogs)) {
                         DB.cheatLogs = d.cheatLogs.map(l => ({
                             timestamp: l.timestamp || l.TIMESTAMP || '-',
@@ -6170,11 +6426,9 @@
                     }
                 }
 
-                // Jika data questions atau results belum terisi lengkap dari batch, lakukan sync paralel live langsung ke sheet bersangkutan
                 try {
                     const fallbackPromises = [];
 
-                    // Fallback Mata Pelajaran
                     fallbackPromises.push(apiCall('getSubjects', {}, 8000, true).then(remoteSub => {
                         if (remoteSub && remoteSub.status === 'success' && Array.isArray(remoteSub.data) && remoteSub.data.length > 0) {
                             DB.subjects = remoteSub.data;
@@ -6182,7 +6436,6 @@
                         }
                     }));
 
-                    // Fallback Hasil Nilai Siswa
                     fallbackPromises.push(apiCall('getResults', {}, 8000, true).then(remoteRes => {
                         if (remoteRes && remoteRes.status === 'success' && Array.isArray(remoteRes.data)) {
                             DB.results = remoteRes.data.map((r, rIdx) => ({
@@ -6200,7 +6453,6 @@
                         }
                     }));
 
-                    // Fallback Butir Soal untuk setiap Mata Pelajaran dan Paket
                     if (Array.isArray(DB.subjects) && DB.subjects.length > 0) {
                         DB.subjects.forEach(sub => {
                             const subId = sub.id;
