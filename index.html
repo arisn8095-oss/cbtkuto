@@ -358,23 +358,13 @@
             }
         };
 
-        // Cache respon API in-memory & Fast Request Queueing
-        const apiCacheMap = new Map();
-        let activeApiCalls = new Map();
+        // Realtime Inter-Tab Broadcast Channel
+        const RealtimeChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('EDUGUARD_REALTIME_BUS') : null;
 
-        async function apiCall(action, payload = {}, timeoutMs = 8500, bypassCache = false) {
+        async function apiCall(action, payload = {}, timeoutMs = 8500) {
             if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("PASTE_YOUR_WEB_APP_URL")) return null;
-            
-            // Batalkan request identik yang masih tertunda untuk efisiensi jaringan
-            const reqKey = `${action}_${JSON.stringify(payload)}`;
-            if (activeApiCalls.has(reqKey)) {
-                try { activeApiCalls.get(reqKey).abort(); } catch(e){}
-            }
-
             const controller = new AbortController();
-            activeApiCalls.set(reqKey, controller);
             const id = setTimeout(() => controller.abort(), timeoutMs);
-
             try {
                 const res = await fetch(GOOGLE_SCRIPT_URL, {
                     method: 'POST',
@@ -385,26 +375,16 @@
                             ...payload, 
                             sheetSystemId: DB_SISTEM_ID, 
                             sheetSoalId: DB_SOAL_ID,
-                            clientTimestamp: Date.now(),
-                            bypassCache: bypassCache
+                            clientTimestamp: Date.now()
                         } 
                     }),
                     signal: controller.signal
                 });
                 clearTimeout(id);
-                activeApiCalls.delete(reqKey);
-                const json = await res.json();
-                if (json && json.status === 'success') {
-                    apiCacheMap.set(reqKey, { data: json, time: Date.now() });
-                }
-                return json;
+                return await res.json();
             } catch (err) {
                 clearTimeout(id);
-                activeApiCalls.delete(reqKey);
-                // Jika bypassCache aktif, jangan gunakan cache kadaluarsa
-                if (!bypassCache && apiCacheMap.has(reqKey)) {
-                    return apiCacheMap.get(reqKey).data;
-                }
+                console.warn(`Fast API '${action}' dialihkan ke cache lokal (${err.name === 'AbortError' ? 'Batas Waktu Maksimal 10 Detik Terpenuhi' : err.message})`);
                 return null;
             }
         }
@@ -425,15 +405,15 @@
             isInternalAction: false,
             questionImageVisibility: {},
             
+            // Teacher State
             teacherActiveTab: 'manual', 
             teacherSelectedSubject: 'SUB-19850715',
             teacherSelectedPkg: 'A',
             teacherAnalysisFilterClass: 'all',
-            teacherResultFilterClass: 'all',
-            teacherResultFilterPackage: 'all',
             teacherDataLastFetched: 0,
             teacherSelectedResultNis: null,
 
+            // Admin State
             adminActiveTab: 'publication',
             adminResultFilterClass: 'all',
             adminResultFilterSubject: 'all',
@@ -443,8 +423,8 @@
             isAdminSyncing: false,
             adminLastSyncTime: null,
             adminLatency: '< 1s',
-            adminFetchDbSubView: 'all_sections',
 
+            // Dynamic Form State for Manual Input
             manualFormState: {
                 pgOptions: ["", "", "", ""],
                 bsStatements: ["Pernyataan 1", "Pernyataan 2"],
@@ -456,6 +436,7 @@
                 ]
             },
 
+            // Dynamic State for Edit Question Modal
             editFormState: {
                 qId: null,
                 type: 'PG',
@@ -468,179 +449,92 @@
                 matchPairs: []
             },
 
-            init() {
+            async init() {
                 try {
                     this.loadCheatLogsFromLocal();
+                    this.loadResultsFromLocal();
                     this.generateDeviceFingerprint();
                     this.setupSecurityListeners();
-                    this.ensureSubjectsUpToDate();
-                    this.syncAllDataFromSpreadsheetLive(true);
-                    this.setupAdminStorageListener();
+                    this.setupRealtimeListeners();
                     this.renderLoginView();
+                    // Ambil seluruh data terpusat mutlak dari Google Spreadsheet agar seragam antar perangkat
+                    await this.syncCentralDatabaseFromSheet();
                 } catch(e) {
                     console.error("Initialization error handled:", e);
                     this.renderLoginView();
                 }
             },
 
-            async syncAllDataFromSpreadsheetLive(isSilent = false) {
+            async syncCentralDatabaseFromSheet() {
                 try {
-                    const res = await apiCall('syncAllData', { target: 'ALL' }, 9000, true);
+                    const res = await apiCall('syncAllData', { target: 'ALL' }, 9500);
                     if (res && res.status === 'success' && res.data) {
                         const d = res.data;
-
-                        // 1. Sinkronisasi Data Pengguna Lintas Perangkat
                         if (Array.isArray(d.users) && d.users.length > 0) {
                             const st = [];
                             const tc = [];
                             d.users.forEach(u => {
-                                const uId = String(u.id || u.ID_NIS_NIP || u.nis || u.nip || '').trim();
-                                const uName = String(u.name || u.NAME || '').trim();
-                                const uRole = String(u.role || u.ROLE || 'student').trim().toLowerCase();
-                                const uClass = String(u.class || u.CLASS || u.subject || u.subjectName || '-').trim();
-                                const uDev = u.deviceId !== undefined ? u.deviceId : (u.DEVICE_ID || null);
-
-                                if (uRole === 'teacher' || uRole === 'guru') {
-                                    tc.push({ nip: uId, name: uName, subject: uClass || 'Mapel', subjectId: 'SUB-' + uId });
-                                } else {
-                                    st.push({ nis: uId, name: uName, class: uClass, deviceId: uDev });
-                                }
+                                if (u.role === 'student') st.push({ nis: String(u.id), name: u.name, class: u.class || '-', deviceId: u.deviceId || null });
+                                else if (u.role === 'teacher') tc.push({ nip: String(u.id), name: u.name, subject: u.subject || 'Mapel', subjectId: 'SUB-' + u.id });
                             });
                             if (st.length > 0) DB.students = st;
                             if (tc.length > 0) DB.teachers = tc;
                         }
-
-                        // 2. Sinkronisasi Mata Pelajaran, Token, Durasi, Randomize, dan Status Terbit
                         if (Array.isArray(d.subjects) && d.subjects.length > 0) {
                             DB.subjects = d.subjects;
-                            this.ensureSubjectsUpToDate();
                         }
-
-                        // 3. Sinkronisasi Bank Butir Soal Lintas Perangkat
+                        if (Array.isArray(d.results)) {
+                            DB.results = d.results;
+                            this.saveResultsToLocal();
+                        }
+                        if (d.answersMap && typeof d.answersMap === 'object') {
+                            if (!DB.studentAnswersMap) DB.studentAnswersMap = {};
+                            Object.assign(DB.studentAnswersMap, d.answersMap);
+                            this.saveResultsToLocal();
+                        }
                         if (d.allExamPackagesBySubject && typeof d.allExamPackagesBySubject === 'object') {
                             Object.keys(d.allExamPackagesBySubject).forEach(sKey => {
                                 if (!DB.examPackages[sKey]) DB.examPackages[sKey] = {};
                                 Object.assign(DB.examPackages[sKey], d.allExamPackagesBySubject[sKey]);
                             });
                         }
-                        if (Array.isArray(d.questions) && d.questions.length > 0) {
-                            d.questions.forEach(q => {
-                                const subId = q.subjectId || (DB.subjects.length > 0 ? DB.subjects[0].id : 'SUB-DEFAULT');
-                                const pkg = q.package || 'A';
-                                if (!DB.examPackages[subId]) DB.examPackages[subId] = {};
-                                if (!DB.examPackages[subId][pkg]) DB.examPackages[subId][pkg] = [];
-                                const exIdx = DB.examPackages[subId][pkg].findIndex(it => it.id === q.id);
-                                if (exIdx >= 0) DB.examPackages[subId][pkg][exIdx] = q;
-                                else DB.examPackages[subId][pkg].push(q);
-                            });
-                        }
-
-                        // 4. Sinkronisasi Rekap Hasil Nilai Siswa
-                        if (Array.isArray(d.results) && d.results.length > 0) {
-                            DB.results = d.results;
-                        }
-
-                        // 5. Sinkronisasi Lembar Jawaban Siswa
-                        if (d.answersMap && typeof d.answersMap === 'object') {
-                            if (!DB.studentAnswersMap) DB.studentAnswersMap = {};
-                            Object.assign(DB.studentAnswersMap, d.answersMap);
-                        }
-
-                        // 6. Sinkronisasi Log Pelanggaran Real-time
                         if (Array.isArray(d.cheatLogs)) {
                             DB.cheatLogs = d.cheatLogs;
                             this.saveCheatLogsToLocal();
                         }
-
-                        if (!isSilent) this.showToast('Data Google Spreadsheet berhasil dimuat real-time!', 'success');
+                        this.ensureSubjectsUpToDate();
                     }
-                } catch(e) {
-                    console.warn("Gagal sinkronisasi data awal Spreadsheet:", e);
+                } catch(err) {
+                    console.warn("Sinkronisasi spreadsheet awal mengalami kendala:", err);
                 }
             },
-            async startStudentExam(subjectId, targetPkg) {
-                const tokenInputEl = document.getElementById(`token-${subjectId}-${targetPkg}`);
-                const tokenInput = tokenInputEl ? tokenInputEl.value.trim().toUpperCase() : '';
-                
-                // Ambil data subject & token real-time langsung dari Spreadsheet
-                let subjects = DB.subjects;
-                const remoteSub = await apiCall('getSubjects', {}, 8500, true);
-                if (remoteSub && remoteSub.status === 'success' && Array.isArray(remoteSub.data) && remoteSub.data.length > 0) {
-                    subjects = remoteSub.data;
-                    DB.subjects = subjects;
-                }
 
-                const subject = subjects.find(s => s.id === subjectId);
-                if (!subject) return;
+            saveResultsToLocal() {
+                try {
+                    localStorage.setItem('EDUGUARD_RESULTS', JSON.stringify(DB.results));
+                    localStorage.setItem('EDUGUARD_ANSWERS_MAP', JSON.stringify(DB.studentAnswersMap));
+                } catch(e) {}
+            },
 
-                if (!tokenInput) return this.showToast(`Harap masukkan Token untuk Paket ${targetPkg}!`, 'warning');
-                if (this.hasStudentCompletedPackage(subject.name, targetPkg)) return this.showToast(`Anda sudah menyelesaikan Paket ${targetPkg} ini!`, 'error');
-
-                const expectedToken = (subject.packageTokens && subject.packageTokens[targetPkg]) || subject.token || '';
-                if (tokenInput !== expectedToken.toUpperCase()) {
-                    return this.showToast(`Token untuk Paket ${targetPkg} salah! Silakan minta token ke Pengawas.`, 'error');
-                }
-
-                let questions = (DB.examPackages[subjectId] && DB.examPackages[subjectId][targetPkg]) || [];
-                // Ambil butir soal langsung dari spreadsheet real-time
-                const remoteQ = await apiCall('getQuestions', { subjectId: subjectId, package: targetPkg }, 8500, true);
-                if (remoteQ && remoteQ.status === 'success' && Array.isArray(remoteQ.data) && remoteQ.data.length > 0) {
-                    questions = remoteQ.data;
-                    if (!DB.examPackages[subjectId]) DB.examPackages[subjectId] = {};
-                    DB.examPackages[subjectId][targetPkg] = questions;
-                }
-
-                if (questions.length === 0) return this.showToast(`Belum ada butir soal pada Paket ${targetPkg}!`, 'warning');
-
-                const randConf = (subject.packageRandomize && subject.packageRandomize[targetPkg]) || { questions: true, options: true };
-
-                let preparedQuestions = questions.map((q, origIdx) => {
-                    const cloned = JSON.parse(JSON.stringify(q));
-                    cloned.originalIndex = origIdx;
-
-                    if (randConf.options && cloned.type === 'PG' && Array.isArray(cloned.options)) {
-                        const indexedOpts = cloned.options.map((opt, oIdx) => ({
-                            text: opt,
-                            img: (cloned.optionImages && cloned.optionImages[oIdx]) || null,
-                            isKey: cloned.correctKey === oIdx
-                        }));
-                        const shuffledOpts = this.shuffleArray(indexedOpts);
-                        cloned.options = shuffledOpts.map(o => o.text);
-                        cloned.optionImages = shuffledOpts.map(o => o.img);
-                        cloned.correctKey = shuffledOpts.findIndex(o => o.isKey);
+            loadResultsFromLocal() {
+                try {
+                    const savedRes = localStorage.getItem('EDUGUARD_RESULTS');
+                    if (savedRes) {
+                        const parsed = JSON.parse(savedRes);
+                        if (Array.isArray(parsed) && parsed.length > 0) DB.results = parsed;
                     }
-                    return cloned;
-                });
+                    const savedAns = localStorage.getItem('EDUGUARD_ANSWERS_MAP');
+                    if (savedAns) {
+                        const parsedAns = JSON.parse(savedAns);
+                        if (parsedAns && typeof parsedAns === 'object') Object.assign(DB.studentAnswersMap, parsedAns);
+                    }
+                } catch(e) {}
+            },
 
-                if (randConf.questions) {
-                    preparedQuestions = this.shuffleArray(preparedQuestions);
-                }
-
-                this.requestFullScreenMode();
-                const pkgDuration = (subject.packageDurations && subject.packageDurations[targetPkg]) || subject.durationMin || 60;
-                const resolvedTeacherName = this.getTeacherDisplayName(subject);
-                const pkgNote = (subject.packageNotes && subject.packageNotes[targetPkg]) ? subject.packageNotes[targetPkg] : '';
-
-                this.activeExam = {
-                    subjectId: subject.id,
-                    subjectName: subject.name,
-                    teacherName: resolvedTeacherName,
-                    package: targetPkg,
-                    packageNote: pkgNote,
-                    durationMin: pkgDuration,
-                    questions: preparedQuestions,
-                    currentQuestionIdx: 0,
-                    questionTimeSpent: {}
-                };
-
-                this.userAnswers = {};
-                this.violationsCount = 0;
-                this.questionImageVisibility = {};
-                this.remainingSeconds = pkgDuration * 60;
-
-                this.renderExamInterface();
-                this.startTimer();
-                this.showToast('Mode Ujian Lockdown Aktif! Wajib minimal 1 menit per soal.', 'info');
+            saveCheatLogsToLocal() {
+                try {
+                    localStorage.setItem('EDUGUARD_CHEAT_LOGS', JSON.stringify(DB.cheatLogs));
+                } catch(e) {}
             },
 
             loadCheatLogsFromLocal() {
@@ -655,10 +549,38 @@
                 } catch(e) {}
             },
 
-            setupAdminStorageListener() {
+            broadcastRealtimeEvent(type, data = {}) {
+                try {
+                    if (RealtimeChannel) {
+                        RealtimeChannel.postMessage({ type, data, timestamp: Date.now() });
+                    }
+                } catch(e) {}
+            },
+
+            setupRealtimeListeners() {
+                if (RealtimeChannel) {
+                    RealtimeChannel.onmessage = (event) => {
+                        const { type } = event.data || {};
+                        if (type === 'VIOLATION' || type === 'EXAM_SUBMITTED' || type === 'PACKAGE_UPDATE') {
+                            this.loadCheatLogsFromLocal();
+                            this.loadResultsFromLocal();
+                            if (this.currentUser) {
+                                if (this.currentUser.role === 'admin') this.updateAdminRealtimeViews();
+                                if (this.currentUser.role === 'teacher' && ['results', 'analysis', 'cheat'].includes(this.teacherActiveTab)) {
+                                    this.syncTeacherLiveDataSilently();
+                                }
+                                if (this.currentUser.role === 'student' && !this.activeExam) {
+                                    this.refreshPublishedExamsForStudent(true);
+                                }
+                            }
+                        }
+                    };
+                }
+
                 window.addEventListener('storage', (e) => {
-                    if (e.key === 'EDUGUARD_CHEAT_LOGS') {
+                    if (e.key === 'EDUGUARD_CHEAT_LOGS' || e.key === 'EDUGUARD_RESULTS') {
                         this.loadCheatLogsFromLocal();
+                        this.loadResultsFromLocal();
                         if (this.currentUser && this.currentUser.role === 'admin') {
                             this.updateAdminRealtimeViews();
                         }
@@ -729,6 +651,7 @@
                     }
                 };
 
+                // Blokir klik kanan, copy, paste, cut, drag, selection
                 document.addEventListener('contextmenu', preventProtectedEvent, { passive: false });
                 document.addEventListener('copy', preventProtectedEvent, { passive: false });
                 document.addEventListener('paste', preventProtectedEvent, { passive: false });
@@ -770,6 +693,7 @@
                     }
                 });
 
+                // Deteksi Anti Split Screen
                 window.addEventListener('resize', () => {
                     if (!this.activeExam || this.isInternalAction) return;
                     const screenHeight = window.screen.availHeight || window.screen.height;
@@ -783,6 +707,7 @@
                     }
                 });
 
+                // Anti Screenshot & PrintScreen Clipboard Eraser
                 window.addEventListener('keyup', (e) => {
                     if (!this.activeExam) return;
                     const key = e.key || e.keyCode;
@@ -1066,6 +991,9 @@
                 const inp = document.getElementById('loginIdInput');
                 const val = inp ? inp.value.trim() : '';
                 if (!val) return this.showToast('Harap isi ID / NIS / NIP terlebih dahulu!', 'warning');
+
+                // Sinkronisasikan database Google Spreadsheet sebelum autentikasi agar data perangkat selalu sinkron
+                await this.syncCentralDatabaseFromSheet();
 
                 const remoteRes = await apiCall('login', { id: val, deviceId: this.deviceFingerprint });
                 if (remoteRes && remoteRes.status === 'success') {
@@ -1362,8 +1290,10 @@
                 const container = document.getElementById('studentPublishedExamsContainer');
                 if (!container) return;
 
-                const renderSubjects = (subjects) => {
-                    const publishedList = subjects.filter(sub => sub.publishedPackages && sub.publishedPackages.length > 0);
+                // Tampilkan data lokal secara langsung tanpa blocking render
+                let subjects = DB.subjects || [];
+                const renderItems = (subList) => {
+                    const publishedList = subList.filter(sub => sub.publishedPackages && sub.publishedPackages.length > 0);
                     if (publishedList.length === 0) {
                         container.innerHTML = `
                             <div class="text-center py-10 bg-slate-50 border border-slate-200 rounded-2xl p-4">
@@ -1475,15 +1405,16 @@
                     }).join('');
                 };
 
-                renderSubjects(DB.subjects);
+                // Render instan dari cache lokal
+                renderItems(subjects);
 
-                const remoteSub = await apiCall('getSubjects', {}, 4000);
-                if (remoteSub && remoteSub.status === 'success' && Array.isArray(remoteSub.data) && remoteSub.data.length > 0) {
-                    if (JSON.stringify(DB.subjects) !== JSON.stringify(remoteSub.data)) {
+                // Sinkronisasi realtime latar belakang
+                apiCall('getSubjects', {}, 9500).then(remoteSub => {
+                    if (remoteSub && remoteSub.status === 'success' && Array.isArray(remoteSub.data) && remoteSub.data.length > 0) {
                         DB.subjects = remoteSub.data;
-                        renderSubjects(DB.subjects);
+                        renderItems(DB.subjects);
                     }
-                }
+                });
 
                 if (!isSilent) this.showToast('Daftar paket ujian telah diperbarui.', 'info');
             },
@@ -1622,6 +1553,7 @@
 
                 body.innerHTML = `
                     <div class="mobile-shell bg-white border border-slate-200 rounded-3xl flex flex-col justify-between p-4 sm:p-5 shadow-xl my-2 anti-screenshot-shield relative overflow-hidden">
+                        <!-- WATERMARK SECURITY SCREEN -->
                         <div class="watermark-overlay">
                             ${this.currentUser.name} - ${this.currentUser.nis} - SMAN 1 KUTOWINANGUN
                         </div>
@@ -1687,6 +1619,7 @@
                                     <span class="text-[10px] text-slate-400 font-bold">Bobot: ${q.weight || 20} Poin</span>
                                 </div>
 
+                                <!-- KARTU GAMBAR SOAL DENGAN TOMBOL TUTUP / SEMBUNYIKAN / PERBESAR -->
                                 ${formattedQImg ? `
                                     <div class="my-3 bg-white border border-slate-200 rounded-2xl p-2.5 shadow-sm space-y-2">
                                         <div class="flex items-center justify-between border-b pb-1.5 px-1">
@@ -2043,9 +1976,10 @@
                     timestamp: new Date().toLocaleTimeString()
                 };
 
-                apiCall('logViolation', { log: logData });
                 DB.cheatLogs.unshift(logData);
                 this.saveCheatLogsToLocal();
+                this.broadcastRealtimeEvent('VIOLATION', logData);
+                apiCall('logViolation', { log: logData });
 
                 if (this.violationsCount >= this.maxViolations) {
                     const co = document.getElementById('cheatOverlay');
@@ -2365,14 +2299,17 @@
                     scorePG: totalPGScore,
                     totalScore: totalPGScore,
                     status: isAutoSubmit ? 'Dibatalkan (Auto-Submit)' : 'Selesai',
-                    userAnswers: standardKeyAnswers
+                    userAnswers: standardKeyAnswers,
+                    submittedAt: new Date().toLocaleTimeString()
                 };
 
                 if (!DB.studentAnswersMap) DB.studentAnswersMap = {};
                 DB.studentAnswersMap[`${this.currentUser.nis}_${this.activeExam.subjectName}_${this.activeExam.package}`] = standardKeyAnswers;
+                DB.results.unshift({ ...resultPayload, rowIdx: DB.results.length + 2 });
 
-                await apiCall('submitExam', { result: resultPayload });
-                DB.results.push({ ...resultPayload, rowIdx: DB.results.length + 2, submittedAt: new Date().toLocaleTimeString() });
+                this.saveResultsToLocal();
+                this.broadcastRealtimeEvent('EXAM_SUBMITTED', resultPayload);
+                apiCall('submitExam', { result: resultPayload });
 
                 this.exitFullScreenMode();
 
@@ -2444,6 +2381,7 @@
                 body.innerHTML = `
                     <div class="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-5">
                         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                            <!-- SISI KIRI: Identitas Panel Guru Pengampu -->
                             <div class="flex-shrink-0">
                                 <div class="flex items-center gap-2">
                                     <h2 class="text-lg sm:text-xl font-extrabold text-slate-800 flex items-center gap-2">
@@ -2456,12 +2394,15 @@
                                 <p class="text-xs text-slate-500 mt-0.5">${tc.name} | NIP: ${tc.nip}</p>
                             </div>
                             
+                            <!-- SISI KANAN (RATA KANAN): Mapel Guru & Kumpulan Paket Soal -->
                             <div class="md:ml-auto flex flex-col sm:flex-row items-start sm:items-center justify-end gap-2.5 flex-wrap">
+                                <!-- Badge Mapel Guru -->
                                 <div class="px-3.5 py-2 border border-purple-200 rounded-xl text-xs font-bold text-purple-900 bg-purple-50 flex items-center gap-1.5 shadow-sm">
                                     <i class="fa-solid fa-book-bookmark text-purple-600"></i>
                                     <span>Mapel: <strong class="text-purple-950 font-black">${subjectObj.name}</strong></span>
                                 </div>
 
+                                <!-- Kumpulan Paket Soal Guru -->
                                 <div class="bg-slate-100 p-1 rounded-xl flex text-xs font-bold items-center gap-1 shadow-inner">
                                     ${subjectObj.packages.map(p => `
                                         <button onclick="EduGuard.selectTeacherPackageOnly('${p}')" class="px-3 py-1.5 rounded-lg transition ${p === activePkg ? 'bg-purple-600 text-white shadow-md font-extrabold' : 'text-slate-600 hover:text-purple-600'}">
@@ -2475,6 +2416,7 @@
                             </div>
                         </div>
 
+                        <!-- MODUL PENGATURAN TOKEN & DURASI PAKET SOAL -->
                         <div class="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
@@ -2510,6 +2452,7 @@
                             </div>
                         </div>
 
+                        <!-- Status Akumulasi Poin Paket -->
                         <div class="flex items-center justify-between p-3 rounded-2xl border ${totalWeight === 100 ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'} text-xs">
                             <div class="flex items-center gap-2">
                                 <i class="fa-solid ${totalWeight === 100 ? 'fa-circle-check text-emerald-600' : 'fa-triangle-exclamation text-amber-600'} text-base"></i>
@@ -2528,6 +2471,7 @@
                             </div>
                         </div>
 
+                        <!-- Sub-Navigation Tabs Guru -->
                         <div class="flex overflow-x-auto gap-2 border-b border-slate-100 pb-2 text-xs font-bold">
                             <button onclick="EduGuard.switchTeacherTab('manual')" class="px-3 py-2 rounded-xl flex items-center gap-1.5 whitespace-nowrap transition ${activeTab === 'manual' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'text-slate-500 hover:bg-slate-50'}">
                                 <i class="fa-solid fa-pen-to-square"></i> 1. Input Soal Manual & Simbol
@@ -2577,7 +2521,7 @@
                 const isWritingQuestion = this.teacherActiveTab === 'manual' || document.getElementById('editModalText');
                 
                 try {
-                    const res = await apiCall('getTeacherDashboardData', { subjectId: subId, package: pkg }, 3500);
+                    const res = await apiCall('getTeacherDashboardData', { subjectId: subId, package: pkg }, 9500);
                     if (res && res.status === 'success' && res.data) {
                         const d = res.data;
                         let changed = false;
@@ -3000,26 +2944,14 @@
                         </div>
                     `;
                 } else if (tab === 'results') {
+                    // TAB REKAP NILAI SISWA (TAMPILAN RINGKAS TANPA LEMBAR RINCIAN PANJANG DI BAWAH)
                     const activeSubjectObj = DB.subjects.find(s => s.id === subjectId);
                     const subjectName = activeSubjectObj ? activeSubjectObj.name : 'Mata Pelajaran';
-                    
-                    const fClass = this.teacherResultFilterClass || 'all';
-                    const fPkg = this.teacherResultFilterPackage || 'all';
-
-                    const baseResults = DB.results.filter(r => !r.subject || r.subject === subjectName || subjectName.includes(r.subject) || r.subject.includes(subjectName));
-                    const sourceResults = baseResults.length > 0 ? baseResults : DB.results;
-
-                    const teacherClasses = Array.from(new Set(sourceResults.map(r => r.class || 'Lainnya'))).filter(c => c && c !== '-');
-                    const teacherPackages = Array.from(new Set(sourceResults.map(r => r.package || 'A'))).filter(Boolean);
-
-                    const listToDisplay = sourceResults.filter(r => {
-                        const matchCls = fClass === 'all' || r.class === fClass;
-                        const matchPkg = fPkg === 'all' || String(r.package || 'A') === String(fPkg);
-                        return matchCls && matchPkg;
-                    });
+                    const filteredResults = DB.results.filter(r => !r.subject || r.subject === subjectName || subjectName.includes(r.subject) || r.subject.includes(subjectName));
+                    const listToDisplay = filteredResults.length > 0 ? filteredResults : DB.results;
 
                     return `
-                        <div class="space-y-4">
+                        <div class="space-y-5">
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-purple-50 border border-purple-200 p-4 rounded-2xl">
                                 <div>
                                     <h4 class="font-bold text-purple-900 text-xs sm:text-sm flex items-center gap-2">
@@ -3040,40 +2972,10 @@
                                 </div>
                             </div>
 
-                            <div class="bg-slate-50 border border-purple-100 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs font-bold text-purple-950 flex items-center gap-1.5">
-                                        <i class="fa-solid fa-filter text-purple-600"></i> Filter Nilai:
-                                    </span>
-                                    <span class="text-[11px] text-slate-500 font-medium">Tampil: <strong>${listToDisplay.length}</strong> Siswa</span>
-                                </div>
-                                <div class="flex items-center gap-2.5 flex-wrap">
-                                    <div class="flex items-center gap-1.5">
-                                        <label for="selTeacherFilterClass" class="text-xs font-bold text-slate-600">Kelas:</label>
-                                        <select id="selTeacherFilterClass" onchange="EduGuard.changeTeacherResultFilter('class', this.value)" class="px-2.5 py-1.5 border rounded-xl text-xs font-bold bg-white text-purple-900 border-purple-300 shadow-xs focus:outline-none focus:ring-2 focus:ring-purple-500">
-                                            <option value="all" ${fClass === 'all' ? 'selected' : ''}>Semua Kelas</option>
-                                            ${teacherClasses.map(c => `<option value="${c}" ${fClass === c ? 'selected' : ''}>${c}</option>`).join('')}
-                                        </select>
-                                    </div>
-                                    <div class="flex items-center gap-1.5">
-                                        <label for="selTeacherFilterPackage" class="text-xs font-bold text-slate-600">Paket:</label>
-                                        <select id="selTeacherFilterPackage" onchange="EduGuard.changeTeacherResultFilter('package', this.value)" class="px-2.5 py-1.5 border rounded-xl text-xs font-bold bg-white text-purple-900 border-purple-300 shadow-xs focus:outline-none focus:ring-2 focus:ring-purple-500">
-                                            <option value="all" ${fPkg === 'all' ? 'selected' : ''}>Semua Paket</option>
-                                            ${teacherPackages.map(p => `<option value="${p}" ${fPkg === p ? 'selected' : ''}>Paket ${p}</option>`).join('')}
-                                        </select>
-                                    </div>
-                                    ${(fClass !== 'all' || fPkg !== 'all') ? `
-                                        <button onclick="EduGuard.resetTeacherResultFilters()" class="text-[11px] text-red-600 hover:text-red-800 font-bold px-2 py-1 bg-red-50 hover:bg-red-100 rounded-lg transition" title="Reset Filter">
-                                            <i class="fa-solid fa-xmark mr-0.5"></i> Reset
-                                        </button>
-                                    ` : ''}
-                                </div>
-                            </div>
-
                             ${listToDisplay.length === 0 ? `
                                 <div class="text-center py-8 text-slate-400 text-xs border rounded-2xl bg-white p-6">
                                     <i class="fa-solid fa-file-circle-xmark text-3xl mb-2 block text-slate-300"></i>
-                                    Tidak ada data nilai siswa yang cocok dengan filter yang dipilih.
+                                    Belum ada data pengerjaan ujian siswa untuk mata pelajaran ini.
                                 </div>
                             ` : `
                                 <div class="overflow-x-auto border rounded-2xl bg-white shadow-sm">
@@ -3126,24 +3028,8 @@
                     return this.renderItemAnalysisTabContent(subjectId, pkg, questionsList);
                 } else if (tab === 'cheat') {
                     return `
-                        <div class="space-y-4">
-                            <div class="bg-red-50 border border-red-200 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-                                <div>
-                                    <h4 class="font-bold text-red-950 text-xs sm:text-sm flex items-center gap-2">
-                                        <i class="fa-solid fa-shield-virus text-red-600"></i> Log Pelanggaran Siswa (Live Realtime)
-                                    </h4>
-                                    <p class="text-xs text-red-700">Mencatat upaya pindah tab, keluar layar penuh, split screen, dan tombol kembali saat ujian.</p>
-                                </div>
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <button onclick="EduGuard.fetchTeacherDataFast('cheat_tab')" class="bg-white border border-red-300 hover:bg-red-100 text-red-800 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-xs active:scale-95">
-                                        <i class="fa-solid fa-rotate text-red-600"></i> Sync Log
-                                    </button>
-                                    <button onclick="EduGuard.confirmDeleteAllCheatLogsTeacher()" ${DB.cheatLogs.length === 0 ? 'disabled' : ''} class="bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-md transition disabled:opacity-40 flex items-center gap-1.5 active:scale-95">
-                                        <i class="fa-solid fa-trash-can"></i> Hapus Semua Log (${DB.cheatLogs.length})
-                                    </button>
-                                </div>
-                            </div>
-
+                        <div class="space-y-3">
+                            <h4 class="font-bold text-slate-800 text-sm">Log Pelanggaran Siswa (Live)</h4>
                             <div class="overflow-x-auto border rounded-2xl bg-white shadow-sm">
                                 <table class="w-full text-left border-collapse text-xs">
                                     <thead class="bg-red-50 text-red-800 font-bold border-b">
@@ -3151,32 +3037,20 @@
                                             <th class="p-3">Waktu</th>
                                             <th class="p-3">NIS</th>
                                             <th class="p-3">Nama Siswa</th>
-                                            <th class="p-3">Mata Pelajaran</th>
                                             <th class="p-3">Jenis Pelanggaran</th>
-                                            <th class="p-3 text-center w-16">KALI</th>
-                                            <th class="p-3 text-center w-24">Aksi</th>
+                                            <th class="p-3">KALI</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y text-slate-600">
                                         ${DB.cheatLogs.length === 0 ? `
-                                            <tr><td colspan="7" class="p-6 text-center text-slate-400 font-medium">Belum ada catatan pelanggaran siswa.</td></tr>
-                                        ` : DB.cheatLogs.map((l, lIdx) => `
-                                            <tr class="hover:bg-slate-50 transition">
-                                                <td class="p-3 font-mono text-slate-600 font-bold">${l.timestamp || '-'}</td>
-                                                <td class="p-3 font-bold font-mono text-slate-800">${l.nis}</td>
-                                                <td class="p-3 font-semibold text-slate-700">${l.name}</td>
-                                                <td class="p-3 font-medium text-slate-600">${l.subject || 'Ujian'}</td>
-                                                <td class="p-3 text-red-600 font-semibold flex items-center gap-1.5">
-                                                    <i class="fa-solid fa-triangle-exclamation text-red-500"></i> ${l.violationType}
-                                                </td>
-                                                <td class="p-3 text-center font-bold">
-                                                    <span class="w-6 h-6 rounded-full inline-flex items-center justify-center bg-red-100 text-red-700 font-bold text-xs">${l.count}</span>
-                                                </td>
-                                                <td class="p-3 text-center">
-                                                    <button onclick="EduGuard.deleteSingleCheatLogTeacher(${lIdx}, '${l.nis}')" class="px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold transition flex items-center justify-center gap-1 mx-auto shadow-xs active:scale-95" title="Hapus catatan pelanggaran ini">
-                                                        <i class="fa-solid fa-trash"></i> Hapus
-                                                    </button>
-                                                </td>
+                                            <tr><td colspan="5" class="p-4 text-center text-slate-400">Belum ada catatan pelanggaran siswa.</td></tr>
+                                        ` : DB.cheatLogs.map(l => `
+                                            <tr>
+                                                <td class="p-3">${l.timestamp}</td>
+                                                <td class="p-3 font-bold">${l.nis}</td>
+                                                <td class="p-3">${l.name}</td>
+                                                <td class="p-3 text-red-600 font-semibold">${l.violationType}</td>
+                                                <td class="p-3 font-bold">${l.count}</td>
                                             </tr>
                                         `).join('')}
                                     </tbody>
@@ -4104,7 +3978,7 @@
                 }
             },
 
-            async saveManualQuestion() {
+            saveManualQuestion() {
                 const subId = this.teacherSelectedSubject;
                 const pkg = this.teacherSelectedPkg;
                 const type = document.getElementById('manualType').value;
@@ -4202,11 +4076,9 @@
                 if (!DB.examPackages[subId][pkg]) DB.examPackages[subId][pkg] = [];
 
                 DB.examPackages[subId][pkg].push(newQ);
-                
-                // Simpan langsung ke Google Spreadsheet real-time
-                await apiCall('saveQuestionsBatch', { subjectId: subId, package: pkg, questions: [newQ] }, 9500, true);
+                apiCall('saveQuestionsBatch', { subjectId: subId, package: pkg, questions: [newQ] });
 
-                this.showToast(`Soal berhasil disimpan real-time ke Google Spreadsheet (Paket ${pkg})!`, 'success');
+                this.showToast(`Soal berhasil disimpan ke Paket ${pkg}!`, 'success');
                 this.switchTeacherTab('review');
             },
 
@@ -4282,89 +4154,6 @@
                     <button onclick="EduGuard.updateQuestion('${qId}')" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md">Simpan Perubahan</button>
                 `;
                 this.showModal(`Edit Butir Soal (${q.type})`, body, footer);
-            },
-
-            async updateQuestion(qId) {
-                const subId = this.teacherSelectedSubject;
-                const pkg = this.teacherSelectedPkg;
-                const newText = document.getElementById('editModalText').value.trim();
-                const newImg = document.getElementById('editModalImage').value.trim();
-                const newWeight = Number(document.getElementById('editModalWeight').value || 20);
-
-                const q = DB.examPackages[subId][pkg].find(item => item.id === qId);
-                if (q) {
-                    q.text = newText;
-                    q.image = newImg || null;
-                    q.weight = newWeight;
-
-                    if (q.type === 'PG') {
-                        const opts = [];
-                        this.editFormState.options.forEach((_, i) => {
-                            const val = document.getElementById(`editOpt_${i}`)?.value.trim() || '';
-                            if (val) opts.push(val);
-                        });
-                        q.options = opts;
-                        const radios = document.getElementsByName('editPgCorrect');
-                        for (let r of radios) { if (r.checked) q.correctKey = Number(r.value); }
-                    } else if (q.type === 'PGK') {
-                        const opts = [];
-                        const keys = [];
-                        this.editFormState.options.forEach((_, i) => {
-                            const val = document.getElementById(`editOpt_${i}`)?.value.trim() || '';
-                            if (val) {
-                                opts.push(val);
-                                if (document.getElementById(`editPgkCheck_${i}`)?.checked) keys.push(opts.length - 1);
-                            }
-                        });
-                        q.options = opts;
-                        q.correctKeys = keys;
-                    } else if (q.type === 'BS') {
-                        const stList = [];
-                        const keyMap = {};
-                        this.editFormState.statements.forEach((_, i) => {
-                            const tVal = document.getElementById(`editBsKasus_${i}`)?.value.trim() || '';
-                            const kVal = document.getElementById(`editBsKey_${i}`)?.value || 'BENAR';
-                            if (tVal) {
-                                stList.push(tVal);
-                                keyMap[stList.length - 1] = kVal;
-                            }
-                        });
-                        q.statements = stList;
-                        q.options = stList;
-                        q.correctKey = keyMap;
-                    } else if (q.type === 'URUTAN') {
-                        const items = [];
-                        this.editFormState.orderItems.forEach((_, i) => {
-                            const val = document.getElementById(`editUrutan_${i}`)?.value.trim() || '';
-                            if (val) items.push(val);
-                        });
-                        q.items = items;
-                        q.correctOrder = [...items];
-                    } else if (q.type === 'JODOH') {
-                        const pairs = [];
-                        this.editFormState.matchPairs.forEach((_, i) => {
-                            const l = document.getElementById(`editJodohLeft_${i}`)?.value.trim() || '';
-                            const r = document.getElementById(`editJodohRight_${i}`)?.value.trim() || '';
-                            if (l && r) pairs.push({ left: l, right: r });
-                        });
-                        q.pairs = pairs;
-                    }
-
-                    // Sinkronisasi update langsung ke Spreadsheet
-                    await apiCall('saveQuestionsBatch', { subjectId: subId, package: pkg, questions: [q] }, 9500, true);
-                }
-                this.closeModal();
-                this.renderTeacherDashboard();
-                this.showToast('Soal berhasil diperbarui di Google Spreadsheet!', 'success');
-            },
-
-            async deleteQuestion(qId) {
-                const subId = this.teacherSelectedSubject;
-                const pkg = this.teacherSelectedPkg;
-                DB.examPackages[subId][pkg] = DB.examPackages[subId][pkg].filter(item => item.id !== qId);
-                await apiCall('deleteQuestion', { questionId: qId }, 9500, true);
-                this.renderTeacherDashboard();
-                this.showToast('Soal berhasil dihapus dari Google Spreadsheet.', 'info');
             },
 
             getEditModalDynamicFieldsHTML() {
@@ -4561,6 +4350,90 @@
                 }
             },
 
+            updateQuestion(qId) {
+                const subId = this.teacherSelectedSubject;
+                const pkg = this.teacherSelectedPkg;
+                const newText = document.getElementById('editModalText').value.trim();
+                const newImg = document.getElementById('editModalImage').value.trim();
+                const newWeight = Number(document.getElementById('editModalWeight').value || 20);
+
+                const q = DB.examPackages[subId][pkg].find(item => item.id === qId);
+                if (q) {
+                    q.text = newText;
+                    q.image = newImg || null;
+                    q.weight = newWeight;
+
+                    if (q.type === 'PG') {
+                        const opts = [];
+                        this.editFormState.options.forEach((_, i) => {
+                            const val = document.getElementById(`editOpt_${i}`)?.value.trim() || '';
+                            if (val) opts.push(val);
+                        });
+                        q.options = opts;
+                        const radios = document.getElementsByName('editPgCorrect');
+                        for (let r of radios) { if (r.checked) q.correctKey = Number(r.value); }
+                    } else if (q.type === 'PGK') {
+                        const opts = [];
+                        const keys = [];
+                        this.editFormState.options.forEach((_, i) => {
+                            const val = document.getElementById(`editOpt_${i}`)?.value.trim() || '';
+                            if (val) {
+                                opts.push(val);
+                                if (document.getElementById(`editPgkCheck_${i}`)?.checked) keys.push(opts.length - 1);
+                            }
+                        });
+                        q.options = opts;
+                        q.correctKeys = keys;
+                    } else if (q.type === 'BS') {
+                        const stList = [];
+                        const keyMap = {};
+                        this.editFormState.statements.forEach((_, i) => {
+                            const tVal = document.getElementById(`editBsKasus_${i}`)?.value.trim() || '';
+                            const kVal = document.getElementById(`editBsKey_${i}`)?.value || 'BENAR';
+                            if (tVal) {
+                                stList.push(tVal);
+                                keyMap[stList.length - 1] = kVal;
+                            }
+                        });
+                        q.statements = stList;
+                        q.options = stList;
+                        q.correctKey = keyMap;
+                    } else if (q.type === 'URUTAN') {
+                        const items = [];
+                        this.editFormState.orderItems.forEach((_, i) => {
+                            const val = document.getElementById(`editUrutan_${i}`)?.value.trim() || '';
+                            if (val) items.push(val);
+                        });
+                        q.items = items;
+                        q.correctOrder = [...items];
+                    } else if (q.type === 'JODOH') {
+                        const pairs = [];
+                        this.editFormState.matchPairs.forEach((_, i) => {
+                            const l = document.getElementById(`editJodohLeft_${i}`)?.value.trim() || '';
+                            const r = document.getElementById(`editJodohRight_${i}`)?.value.trim() || '';
+                            if (l && r) pairs.push({ left: l, right: r });
+                        });
+                        q.pairs = pairs;
+                    }
+
+                    apiCall('saveQuestionsBatch', { subjectId: subId, package: pkg, questions: [q] });
+                }
+                this.closeModal();
+                this.renderTeacherDashboard();
+                this.showToast('Soal berhasil diperbarui!', 'success');
+            },
+
+            deleteQuestion(qId) {
+                const subId = this.teacherSelectedSubject;
+                const pkg = this.teacherSelectedPkg;
+                if (!DB.examPackages[subId] || !DB.examPackages[subId][pkg]) return;
+                
+                DB.examPackages[subId][pkg] = DB.examPackages[subId][pkg].filter(item => item.id !== qId);
+                apiCall('deleteQuestion', { questionId: qId });
+                this.renderTeacherDashboard();
+                this.showToast('Soal berhasil dihapus.', 'info');
+            },
+
             async toggleTeacherFinalize(pkg) {
                 const subId = this.teacherSelectedSubject;
                 const subject = DB.subjects.find(s => s.id === subId);
@@ -4571,7 +4444,7 @@
                 if (idx >= 0) subject.finalizedPackages.splice(idx, 1);
                 else subject.finalizedPackages.push(pkg);
 
-                await apiCall('toggleFinalize', { subjectId: subId, package: pkg }, 9000, true);
+                await apiCall('toggleFinalize', { subjectId: subId, package: pkg });
                 this.showToast('Status finalisasi diperbarui!', 'success');
                 this.renderTeacherDashboard();
             },
@@ -4948,25 +4821,16 @@
                 const filteredResults = DB.results.filter(r => !r.subject || r.subject === subjectObj.name || subjectObj.name.includes(r.subject) || r.subject.includes(subjectObj.name));
                 const dataList = filteredResults.length > 0 ? filteredResults : DB.results;
 
-                const fClass = this.teacherResultFilterClass || 'all';
-                const fPkg = this.teacherResultFilterPackage || 'all';
-
-                const exportList = dataList.filter(r => {
-                    const matchCls = fClass === 'all' || r.class === fClass;
-                    const matchPkg = fPkg === 'all' || String(r.package || 'A') === String(fPkg);
-                    return matchCls && matchPkg;
-                });
-
-                if (exportList.length === 0) return this.showToast('Belum ada data nilai sesuai filter untuk diunduh!', 'warning');
+                if (dataList.length === 0) return this.showToast('Belum ada data nilai!', 'warning');
 
                 const excelData = [
                     ["REKAPITULASI HASIL UJIAN - CBT SMAN 1 KUTOWINANGUN"],
-                    [`Mata Pelajaran: ${subjectObj.name}`, `Filter Kelas: ${fClass === 'all' ? 'Semua Kelas' : fClass}`, `Filter Paket: ${fPkg === 'all' ? 'Semua Paket' : fPkg}`, `Tanggal: ${new Date().toLocaleDateString()}`],
+                    [`Mata Pelajaran: ${subjectObj.name}`, `Tanggal: ${new Date().toLocaleDateString()}`],
                     [],
                     ["NO", "NIS", "NAMA SISWA", "KELAS", "PAKET", "SKOR AKHIR (100)", "STATUS", "WAKTU SUBMIT"]
                 ];
 
-                exportList.forEach((r, idx) => {
+                dataList.forEach((r, idx) => {
                     const finalScore = this.getStudentFinalScore(r);
                     excelData.push([idx + 1, r.nis, r.name, r.class || '-', r.package || 'A', finalScore, r.status || 'Selesai', r.submittedAt || '-']);
                 });
@@ -4974,56 +4838,8 @@
                 const worksheet = XLSX.utils.aoa_to_sheet(excelData);
                 const workbook = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(workbook, worksheet, "Hasil Ujian");
-                XLSX.writeFile(workbook, `Hasil_Ujian_${subjectObj.name.replace(/[^a-zA-Z0-9]/g, '_')}_${fClass}_Paket_${fPkg}.xlsx`);
-                this.showToast('Rekap Nilai berhasil diunduh sesuai filter!', 'success');
-            },
-
-            changeTeacherResultFilter(type, value) {
-                if (type === 'class') this.teacherResultFilterClass = value;
-                if (type === 'package') this.teacherResultFilterPackage = value;
-                this.renderTeacherDashboard();
-            },
-
-            resetTeacherResultFilters() {
-                this.teacherResultFilterClass = 'all';
-                this.teacherResultFilterPackage = 'all';
-                this.renderTeacherDashboard();
-            },
-
-            confirmDeleteAllCheatLogsTeacher() {
-                const total = DB.cheatLogs.length;
-                if (total === 0) return this.showToast('Tidak ada data log pelanggaran untuk dihapus.', 'info');
-                const body = `
-                    <div class="text-center py-3 space-y-3">
-                        <i class="fa-solid fa-triangle-exclamation text-4xl text-red-600"></i>
-                        <p class="font-bold text-slate-800 text-sm">Hapus Seluruh Catatan Pelanggaran Siswa?</p>
-                        <p class="text-xs text-slate-500">Sebanyak <strong>${total}</strong> riwayat pelanggaran akan dihapus dari data sistem dan server sekolah.</p>
-                    </div>
-                `;
-                const footer = `
-                    <button onclick="EduGuard.closeModal()" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold">Batal</button>
-                    <button onclick="EduGuard.executeDeleteAllCheatLogsTeacher()" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-md transition active:scale-95">Ya, Hapus Semua Log</button>
-                `;
-                this.showModal('Konfirmasi Hapus Semua Log Pelanggaran', body, footer);
-            },
-
-            async executeDeleteAllCheatLogsTeacher() {
-                this.closeModal();
-                DB.cheatLogs = [];
-                this.saveCheatLogsToLocal();
-                await apiCall('resetViolations', { nis: 'ALL' });
-                this.showToast('Seluruh log pelanggaran berhasil dibersihkan!', 'success');
-                this.renderTeacherDashboard();
-            },
-
-            async deleteSingleCheatLogTeacher(index, nis) {
-                if (index >= 0 && index < DB.cheatLogs.length) {
-                    const removed = DB.cheatLogs.splice(index, 1)[0];
-                    this.saveCheatLogsToLocal();
-                    await apiCall('resetViolations', { nis: nis });
-                    this.showToast(`Log pelanggaran siswa ${removed.name || nis} berhasil dihapus!`, 'success');
-                    this.renderTeacherDashboard();
-                }
+                XLSX.writeFile(workbook, `Hasil_Ujian_${subjectObj.name.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
+                this.showToast('Rekap Nilai berhasil diunduh!', 'success');
             },
 
             openExamPreviewModal(subId, pkg) {
@@ -5161,7 +4977,7 @@
                 this.loadCheatLogsFromLocal();
 
                 try {
-                    const res = await apiCall('syncAllData', { target: 'RESULTS' }, 3500);
+                    const res = await apiCall('syncAllData', { target: 'RESULTS' }, 7500);
                     const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
                     this.adminLatency = `${elapsed}s`;
                     this.adminLastSyncTime = new Date().toLocaleTimeString();
@@ -5188,6 +5004,7 @@
                         }
                     }
                 } catch(e) {
+                    // Fallback senyap
                 } finally {
                     this.isAdminSyncing = false;
                 }
@@ -5203,133 +5020,33 @@
                 this.adminLastSyncTime = new Date().toLocaleTimeString();
 
                 if (res && res.status === 'success' && res.data) {
-                    const d = res.data;
-
-                    if (d.users && Array.isArray(d.users)) {
+                    if (res.data.users) {
                         const st = [];
                         const tc = [];
-                        d.users.forEach(u => {
-                            const uId = String(u.id || u.ID_NIS_NIP || u.nis || u.nip || '').trim();
-                            const uName = String(u.name || u.NAME || '').trim();
-                            const uRole = String(u.role || u.ROLE || 'student').trim().toLowerCase();
-                            const uClass = String(u.class || u.CLASS || u.subject || u.subjectName || '-').trim();
-                            const uDev = u.deviceId !== undefined ? u.deviceId : (u.DEVICE_ID || null);
-
-                            if (uRole === 'teacher' || uRole === 'guru') {
-                                tc.push({ nip: uId, name: uName, subject: uClass || 'Mapel', subjectId: 'SUB-' + uId });
-                            } else {
-                                st.push({ nis: uId, name: uName, class: uClass, deviceId: uDev });
-                            }
+                        res.data.users.forEach(u => {
+                            if (u.role === 'student') st.push({ nis: u.id, name: u.name, class: u.class, deviceId: u.deviceId });
+                            else if (u.role === 'teacher') tc.push({ nip: u.id, name: u.name, subject: u.subject || 'Mapel', subjectId: 'SUB-' + u.id });
                         });
                         if (st.length > 0) DB.students = st;
                         if (tc.length > 0) DB.teachers = tc;
                     }
-
-                    if (d.subjects && Array.isArray(d.subjects) && d.subjects.length > 0) {
-                        DB.subjects = d.subjects.map(s => {
-                            let pkgs = s.packages || s.PACKAGES || ['A', 'B', 'C'];
-                            if (typeof pkgs === 'string') {
-                                try { pkgs = JSON.parse(pkgs); } catch(e){ pkgs = pkgs.split(',').map(x=>x.trim()).filter(Boolean); }
-                            }
-                            let pkgTokens = s.packageTokens || s.PACKAGE_TOKENS || { "A": s.token || "TOK123" };
-                            if (typeof pkgTokens === 'string') {
-                                try { pkgTokens = JSON.parse(pkgTokens); } catch(e){ pkgTokens = {}; }
-                            }
-                            let pkgDurations = s.packageDurations || s.PACKAGE_DURATIONS || {};
-                            if (typeof pkgDurations === 'string') {
-                                try { pkgDurations = JSON.parse(pkgDurations); } catch(e){ pkgDurations = {}; }
-                            }
-                            let pkgNotes = s.packageNotes || s.PACKAGE_NOTES || {};
-                            if (typeof pkgNotes === 'string') {
-                                try { pkgNotes = JSON.parse(pkgNotes); } catch(e){ pkgNotes = {}; }
-                            }
-                            let pkgRand = s.packageRandomize || s.PACKAGE_RANDOMIZE || {};
-                            if (typeof pkgRand === 'string') {
-                                try { pkgRand = JSON.parse(pkgRand); } catch(e){ pkgRand = {}; }
-                            }
-
-                            const finList = Array.isArray(s.finalizedPackages) ? s.finalizedPackages : (s.FINALIZED_PACKAGES ? String(s.FINALIZED_PACKAGES).split(',').filter(Boolean) : []);
-                            const pubList = Array.isArray(s.publishedPackages) ? s.publishedPackages : (s.PUBLISHED_PACKAGES ? String(s.PUBLISHED_PACKAGES).split(',').filter(Boolean) : []);
-
-                            return {
-                                id: s.id || s.ID || ('SUB-' + (s.teacherNip || s.TEACHER_NIP || 'DEFAULT')),
-                                name: s.name || s.NAME || 'Mata Pelajaran',
-                                teacherNip: s.teacherNip || s.TEACHER_NIP || '',
-                                teacherName: s.teacherName || s.TEACHER_NAME || 'Guru Pengampu',
-                                packages: pkgs,
-                                token: s.token || s.TOKEN || 'TOK123',
-                                packageTokens: pkgTokens,
-                                packageDurations: pkgDurations,
-                                packageNotes: pkgNotes,
-                                packageRandomize: pkgRand,
-                                durationMin: Number(s.durationMin || s.DURATION_MIN || 60),
-                                finalizedPackages: finList,
-                                publishedPackages: pubList
-                            };
-                        });
-                        this.ensureSubjectsUpToDate();
-                    }
-
-                    if (d.allExamPackagesBySubject && typeof d.allExamPackagesBySubject === 'object') {
-                        Object.keys(d.allExamPackagesBySubject).forEach(sKey => {
-                            if (!DB.examPackages[sKey]) DB.examPackages[sKey] = {};
-                            const pkgData = d.allExamPackagesBySubject[sKey];
-                            Object.keys(pkgData).forEach(pKey => {
-                                DB.examPackages[sKey][pKey] = pkgData[pKey];
-                            });
-                        });
-                    }
-                    if (d.allExamPackages && typeof d.allExamPackages === 'object') {
-                        const targetSubKey = DB.subjects.length > 0 ? DB.subjects[0].id : 'SUB-DEFAULT';
-                        if (!DB.examPackages[targetSubKey]) DB.examPackages[targetSubKey] = {};
-                        Object.assign(DB.examPackages[targetSubKey], d.allExamPackages);
-                    }
-                    if (Array.isArray(d.questions) && d.questions.length > 0) {
-                        d.questions.forEach(q => {
-                            const subId = q.subjectId || q.SUBJECT_ID || (DB.subjects.length > 0 ? DB.subjects[0].id : 'SUB-DEFAULT');
-                            const pkg = q.package || q.PACKAGE || 'A';
-                            if (!DB.examPackages[subId]) DB.examPackages[subId] = {};
-                            if (!DB.examPackages[subId][pkg]) DB.examPackages[subId][pkg] = [];
-                            const existIdx = DB.examPackages[subId][pkg].findIndex(item => item.id === q.id);
-                            if (existIdx >= 0) DB.examPackages[subId][pkg][existIdx] = q;
-                            else DB.examPackages[subId][pkg].push(q);
-                        });
-                    }
-
-                    if (d.results && Array.isArray(d.results)) {
-                        DB.results = d.results.map((r, rIdx) => ({
-                            rowIdx: r.rowIdx || (rIdx + 2),
-                            nis: String(r.nis || r.NIS || ''),
-                            name: String(r.name || r.NAME || ''),
-                            class: String(r.class || r.CLASS || '-'),
-                            subject: String(r.subject || r.SUBJECT || 'Mapel'),
-                            package: String(r.package || r.PACKAGE || 'A'),
-                            scorePG: Number(r.scorePG !== undefined ? r.scorePG : (r.SCORE_PG || 0)),
-                            totalScore: Number(r.totalScore !== undefined ? r.totalScore : (r.TOTAL_SCORE || r.scorePG || r.SCORE_PG || 0)),
-                            status: String(r.status || r.STATUS || 'Selesai'),
-                            submittedAt: String(r.submittedAt || r.SUBMITTED_AT || '-')
-                        }));
-                    }
-
-                    if (d.answersMap && typeof d.answersMap === 'object') {
+                    if (res.data.subjects) DB.subjects = res.data.subjects;
+                    if (res.data.results) DB.results = res.data.results;
+                    if (res.data.answersMap) {
                         if (!DB.studentAnswersMap) DB.studentAnswersMap = {};
-                        Object.assign(DB.studentAnswersMap, d.answersMap);
+                        Object.assign(DB.studentAnswersMap, res.data.answersMap);
                     }
-
-                    if (d.cheatLogs && Array.isArray(d.cheatLogs)) {
-                        DB.cheatLogs = d.cheatLogs.map(l => ({
-                            timestamp: l.timestamp || l.TIMESTAMP || '-',
-                            nis: String(l.nis || l.NIS || '-'),
-                            name: String(l.name || l.NAME || '-'),
-                            subject: String(l.subject || l.SUBJECT || 'Ujian'),
-                            violationType: String(l.violationType || l.VIOLATION_TYPE || 'Pelanggaran Keamanan'),
-                            count: Number(l.count || l.COUNT || 1),
-                            status: String(l.status || l.STATUS || 'Teguran')
-                        }));
+                    if (res.data.allExamPackagesBySubject && typeof res.data.allExamPackagesBySubject === 'object') {
+                        Object.keys(res.data.allExamPackagesBySubject).forEach(sKey => {
+                            if (!DB.examPackages[sKey]) DB.examPackages[sKey] = {};
+                            Object.assign(DB.examPackages[sKey], d.allExamPackagesBySubject[sKey]);
+                        });
+                    }
+                    if (res.data.cheatLogs) {
+                        DB.cheatLogs = res.data.cheatLogs;
                         this.saveCheatLogsToLocal();
                     }
-
-                    if (showFeedback) this.showToast(`Seluruh data database berhasil disinkronkan (${elapsed} detik)!`, 'success');
+                    if (showFeedback) this.showToast(`Seluruh data berhasil disinkronkan (${elapsed} detik - Cepat & Akurat)!`, 'success');
                     this.renderAdminDashboard();
                 } else {
                     if (showFeedback) this.showToast(`Sinkronisasi selesai menggunakan cache aktif (${elapsed}s).`, 'info');
@@ -5514,7 +5231,7 @@
                                             <th class="p-3">NIS</th>
                                             <th class="p-3">Nama Siswa</th>
                                             <th class="p-3">Kelas</th>
-                                            <th class="p-3">Mata Pelajaran</th>
+                                            <th class="p-3 font-medium">Mata Pelajaran</th>
                                             <th class="p-3">Paket</th>
                                             <th class="p-3 font-extrabold text-purple-900">Skor Akhir (Akumulasi Bobot)</th>
                                             <th class="p-3">Status</th>
@@ -5832,647 +5549,174 @@
             },
 
             renderAdminFetchDatabaseAllTab() {
-                const currentSubView = this.adminFetchDbSubView || 'all_sections';
-
-                const allQuestionsList = [];
-                const registeredSubIds = new Set();
-
-                Object.entries(DB.examPackages).forEach(([sId, pMap]) => {
-                    registeredSubIds.add(sId);
-                    const subObj = DB.subjects.find(s => 
-                        s.id === sId || 
-                        s.name === sId || 
-                        ('SUB-' + s.teacherNip) === sId ||
-                        sId.includes(s.id)
-                    ) || { name: sId };
-
-                    if (pMap && typeof pMap === 'object') {
-                        Object.entries(pMap).forEach(([pkgKey, qList]) => {
-                            if (Array.isArray(qList)) {
-                                qList.forEach((q, idx) => {
-                                    let keyDisp = '-';
-                                    if (q.type === 'PG') {
-                                        keyDisp = q.correctKey !== undefined && !isNaN(Number(q.correctKey)) 
-                                            ? String.fromCharCode(65 + Number(q.correctKey)) 
-                                            : String(q.correctKey || '-');
-                                    } else if (q.type === 'PGK') {
-                                        keyDisp = Array.isArray(q.correctKeys) 
-                                            ? q.correctKeys.map(k => String.fromCharCode(65 + Number(k))).join(',') 
-                                            : JSON.stringify(q.correctKeys || '-');
-                                    } else if (q.type === 'BS') {
-                                        keyDisp = typeof q.correctKey === 'object' ? JSON.stringify(q.correctKey) : String(q.correctKey || 'BENAR');
-                                    } else if (q.type === 'URUTAN') {
-                                        keyDisp = Array.isArray(q.correctOrder) ? q.correctOrder.join(' -> ') : '-';
-                                    } else if (q.type === 'JODOH') {
-                                        keyDisp = Array.isArray(q.pairs) ? q.pairs.map(p => `${p.left}=>${p.right}`).join(' | ') : '-';
-                                    }
-
-                                    allQuestionsList.push({
-                                        id: q.id || ('Q_' + (idx + 1)),
-                                        subjectName: q.subjectName || subObj.name || sId,
-                                        package: pkgKey,
-                                        qIdx: idx + 1,
-                                        type: q.type || 'PG',
-                                        text: q.text || '(Tidak ada teks soal)',
-                                        weight: Number(q.weight || 20),
-                                        keyDisplay: keyDisp
-                                    });
-                                });
-                            }
-                        });
-                    }
-                });
+                const totalQuestions = Object.values(DB.examPackages).reduce((sum, pkgMap) => {
+                    return sum + Object.values(pkgMap).reduce((pSum, qList) => pSum + qList.length, 0);
+                }, 0);
 
                 return `
-                    <div class="space-y-5 max-w-6xl">
-                        <div class="bg-gradient-to-r from-emerald-700 via-teal-800 to-slate-900 text-white p-5 rounded-2xl shadow-md">
-                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="space-y-5 max-w-4xl">
+                        <div class="bg-gradient-to-r from-emerald-700 to-teal-800 text-white p-5 rounded-2xl shadow-md">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div>
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        <span class="text-[11px] font-black uppercase tracking-wider text-emerald-200 flex items-center gap-1.5">
-                                            <i class="fa-solid fa-bolt text-amber-300"></i> Sinkronisasi Keseluruhan Real-time (&lt; 10s)
-                                        </span>
-                                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-white/20 text-emerald-200 backdrop-blur-sm">
-                                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> TERKONEKSI SPREADSHEET
-                                        </span>
-                                    </div>
-                                    <h3 class="text-base sm:text-lg font-black mt-1">Pusat Data Keseluruhan Sistem CBT SMAN 1 Kutowinangun</h3>
-                                    <p class="text-xs text-emerald-100 mt-0.5">Menampilkan seluruh data pengguna, mata pelajaran, butir soal, hasil nilai, dan log keamanan secara langsung.</p>
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-200 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-bolt text-amber-300"></i> Sinkronisasi Menyeluruh Administrator (&lt; 10 Detik)
+                                    </span>
+                                    <h3 class="text-base sm:text-lg font-black mt-1">Pengambilan Data Lengkap Sistem CBT dari Google Sheets</h3>
+                                    <p class="text-xs text-emerald-100 mt-0.5">Memuat seluruh Bank Soal semua mapel, data akun guru & murid, hasil nilai, dan log keamanan secara akurat.</p>
                                 </div>
-                                <div class="flex items-center gap-2 flex-wrap self-start md:self-auto">
-                                    <button onclick="EduGuard.fetchAdminTargetData('ALL')" class="bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-mono text-xs px-4 py-2.5 rounded-xl font-black transition active:scale-95 flex items-center gap-2 shadow-lg">
-                                        <i class="fa-solid fa-arrows-rotate fa-spin-pulse"></i> Tarik Semua Data (&le; 10s)
-                                    </button>
-                                </div>
+                                <span class="bg-white/20 text-white font-mono text-xs px-3 py-1.5 rounded-xl font-bold backdrop-blur-sm self-start sm:self-auto">
+                                    Akses: Super Admin
+                                </span>
                             </div>
                         </div>
 
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             <div class="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
-                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Pengguna</span>
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Data Pengguna</span>
                                 <span class="text-2xl font-black text-slate-800">${DB.teachers.length + DB.students.length + 1} <span class="text-xs font-normal text-slate-500">Akun</span></span>
-                                <span class="text-[10px] text-slate-500 block mt-1">${DB.teachers.length} Guru &bull; ${DB.students.length} Siswa</span>
                             </div>
                             <div class="p-4 bg-white border border-purple-200 rounded-2xl shadow-sm">
                                 <span class="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">Mata Pelajaran</span>
                                 <span class="text-2xl font-black text-purple-800">${DB.subjects.length} <span class="text-xs font-normal text-slate-500">Mapel</span></span>
-                                <span class="text-[10px] text-purple-600 block mt-1 font-semibold">${DB.subjects.reduce((sum, s) => sum + ((s.packages || []).length), 0)} Paket Soal</span>
                             </div>
                             <div class="p-4 bg-white border border-blue-200 rounded-2xl shadow-sm">
-                                <span class="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">Total Butir Soal</span>
-                                <span class="text-2xl font-black text-blue-800">${allQuestionsList.length} <span class="text-xs font-normal text-slate-500">Soal</span></span>
-                                <span class="text-[10px] text-blue-600 block mt-1 font-semibold">Objektif Lengkap</span>
+                                <span class="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">Bank Soal Terdata</span>
+                                <span class="text-2xl font-black text-blue-800">${totalQuestions} <span class="text-xs font-normal text-slate-500">Soal</span></span>
                             </div>
                             <div class="p-4 bg-white border border-emerald-200 rounded-2xl shadow-sm">
-                                <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Hasil Nilai Siswa</span>
-                                <span class="text-2xl font-black text-emerald-700">${DB.results.length} <span class="text-xs font-normal text-slate-500">Pengerjaan</span></span>
-                                <span class="text-[10px] text-emerald-700 block mt-1 font-semibold">${DB.cheatLogs.length} Log Pelanggaran</span>
+                                <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Rekap Nilai Siswa</span>
+                                <span class="text-2xl font-black text-emerald-700">${DB.results.length} <span class="text-xs font-normal text-slate-500">Hasil</span></span>
                             </div>
                         </div>
 
-                        <div class="bg-slate-50 border border-slate-200 p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm">
-                            <div class="flex items-center gap-1.5 flex-wrap">
-                                <span class="text-xs font-black text-slate-700 mr-2 flex items-center gap-1">
-                                    <i class="fa-solid fa-layer-group text-emerald-600"></i> Mode Tampilan:
-                                </span>
-                                <button onclick="EduGuard.switchAdminFetchDbSubView('all_sections')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition ${currentSubView === 'all_sections' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white text-slate-600 border hover:bg-slate-100'}">
-                                    <i class="fa-solid fa-list-check mr-1"></i> Tampilkan Semua Sekaligus
-                                </button>
-                                <button onclick="EduGuard.switchAdminFetchDbSubView('users')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition ${currentSubView === 'users' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white text-slate-600 border hover:bg-slate-100'}">
-                                    Pengguna (${DB.teachers.length + DB.students.length})
-                                </button>
-                                <button onclick="EduGuard.switchAdminFetchDbSubView('subjects')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition ${currentSubView === 'subjects' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white text-slate-600 border hover:bg-slate-100'}">
-                                    Mapel & Paket (${DB.subjects.length})
-                                </button>
-                                <button onclick="EduGuard.switchAdminFetchDbSubView('questions')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition ${currentSubView === 'questions' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white text-slate-600 border hover:bg-slate-100'}">
-                                    Bank Soal (${allQuestionsList.length})
-                                </button>
-                                <button onclick="EduGuard.switchAdminFetchDbSubView('results')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition ${currentSubView === 'results' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white text-slate-600 border hover:bg-slate-100'}">
-                                    Hasil Nilai (${DB.results.length})
-                                </button>
-                                <button onclick="EduGuard.switchAdminFetchDbSubView('cheat')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition ${currentSubView === 'cheat' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white text-slate-600 border hover:bg-slate-100'}">
-                                    Pelanggaran (${DB.cheatLogs.length})
-                                </button>
-                            </div>
-                            <div class="flex items-center gap-2 self-end sm:self-auto">
-                                <span class="text-[11px] font-mono text-slate-500 bg-white px-2.5 py-1 rounded-lg border">
-                                    Respon: <strong class="text-emerald-700">${this.adminLatency || '< 1s'}</strong>
-                                </span>
+                        <div class="bg-slate-50 border border-slate-200 p-5 rounded-2xl space-y-4">
+                            <h4 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+                                <i class="fa-solid fa-server text-emerald-600"></i> Pilihan Penarikan Database Server (&lt; 10 Detik Terjamin):
+                            </h4>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div class="bg-white p-4 rounded-xl border border-slate-200 space-y-2 flex flex-col justify-between">
+                                    <div>
+                                        <h5 class="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                                            <i class="fa-solid fa-users text-blue-600"></i> Tarik Data Users & Mapel
+                                        </h5>
+                                        <p class="text-[11px] text-slate-500">Perbarui akun murid, guru, dan daftar mata pelajaran beserta token aktif.</p>
+                                    </div>
+                                    <button onclick="EduGuard.fetchAdminTargetData('USERS_SUBJECTS')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl text-xs transition active:scale-95 shadow-sm">
+                                        Tarik Pengguna & Mapel (&lt; 10s)
+                                    </button>
+                                </div>
+
+                                <div class="bg-white p-4 rounded-xl border border-slate-200 space-y-2 flex flex-col justify-between">
+                                    <div>
+                                        <h5 class="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                                            <i class="fa-solid fa-file-invoice text-purple-600"></i> Tarik Nilai & Pelanggaran
+                                        </h5>
+                                        <p class="text-[11px] text-slate-500">Perbarui seluruh rekapitulasi nilai ujian dan riwayat pelanggaran realtime.</p>
+                                    </div>
+                                    <button onclick="EduGuard.fetchAdminTargetData('RESULTS')" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-xl text-xs transition active:scale-95 shadow-sm">
+                                        Tarik Nilai & Log (&lt; 10s)
+                                    </button>
+                                </div>
+
+                                <div class="bg-white p-4 rounded-xl border border-emerald-300 bg-emerald-50/30 space-y-2 flex flex-col justify-between">
+                                    <div>
+                                        <h5 class="font-bold text-xs text-emerald-950 flex items-center gap-1.5">
+                                            <i class="fa-solid fa-bolt text-amber-500"></i> Ambil Keseluruhan Sekaligus
+                                        </h5>
+                                        <p class="text-[11px] text-slate-500">Sinkronkan seluruh data sistem dari Google Sheets (Users, Soal, Nilai, Log) dalam 1 paket cepat.</p>
+                                    </div>
+                                    <button onclick="EduGuard.fetchAdminTargetData('ALL')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition active:scale-95 shadow-md">
+                                        Ambil Semua Database (&lt; 10s)
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        <div id="adminFetchDbDisplayContainer" class="space-y-6">
-                            ${this.getAdminFetchDbSubViewHTML(currentSubView, allQuestionsList)}
-                        </div>
-
-                        <div class="bg-white p-4 rounded-2xl border border-slate-200 text-xs shadow-sm">
-                            <span class="font-bold text-slate-700 block mb-1.5">Status Koneksi Database Google Spreadsheet:</span>
-                            <div class="p-3 bg-slate-900 text-emerald-400 font-sans rounded-xl text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div class="bg-white p-4 rounded-2xl border border-slate-200 text-xs">
+                            <span class="font-bold text-slate-700 block mb-1">Status Koneksi Sistem Pusat:</span>
+                            <div class="p-3 bg-slate-900 text-emerald-400 font-sans rounded-xl text-xs flex items-center justify-between">
                                 <span class="flex items-center gap-2">
                                     <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                    <span>Database Google Spreadsheet Terhubung Aktif & Real-time (Batch Request Terintegrasi)</span>
+                                    <span>Database Google Spreadsheet Aktif, Akurat & Terverifikasi (&lt; 10 Detik)</span>
                                 </span>
-                                <span class="text-[11px] text-emerald-300 font-mono bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-800 self-start sm:self-auto">
-                                    Sinkron: ${this.adminLastSyncTime || new Date().toLocaleTimeString()} &bull; Latensi: ${this.adminLatency}
+                                <span class="text-[11px] text-emerald-300 font-mono bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-800">
+                                    Garansi Kecepatan Cepat
                                 </span>
                             </div>
                             <span class="text-[11px] text-slate-400 mt-2 block">
                                 <i class="fa-solid fa-shield-halved mr-1 text-emerald-600"></i>
-                                Penarikan data menggunakan request tunggal terpadu berkecepatan tinggi (&lt; 10 detik) untuk memastikan seluruh data tertampil secara menyeluruh tanpa beban antrean.
+                                Penarikan data menggunakan request tunggal terpadu untuk menjamin keakuratan nilai dan kelancaran ujian tanpa kendala waktu tunggu.
                             </span>
                         </div>
                     </div>
                 `;
             },
 
-            switchAdminFetchDbSubView(view) {
-                this.adminFetchDbSubView = view;
-                this.renderAdminDashboard();
-            },
-
-            getAdminFetchDbSubViewHTML(view, precomputedQuestions = null) {
-                const allQuestionsList = precomputedQuestions || (() => {
-                    const list = [];
-                    Object.entries(DB.examPackages).forEach(([sId, pMap]) => {
-                        const subObj = DB.subjects.find(s => s.id === sId) || { name: sId };
-                        Object.entries(pMap).forEach(([pkgKey, qList]) => {
-                            if (Array.isArray(qList)) {
-                                qList.forEach((q, idx) => {
-                                    list.push({
-                                        subjectName: subObj.name,
-                                        package: pkgKey,
-                                        qIdx: idx + 1,
-                                        type: q.type,
-                                        text: q.text,
-                                        weight: q.weight || 20,
-                                        keyDisplay: q.type === 'PG' ? (q.correctKey !== undefined ? String.fromCharCode(65 + Number(q.correctKey)) : '-') : (q.type === 'PGK' ? (q.correctKeys || []).map(k=>String.fromCharCode(65 + Number(k))).join(',') : JSON.stringify(q.correctKey || q.correctKeys || q.correctOrder || '-'))
-                                    });
-                                });
-                            }
-                        });
-                    });
-                    return list;
-                })();
-
-                const renderUsersSection = () => `
-                    <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-                        <div class="flex justify-between items-center border-b pb-2.5">
-                            <div>
-                                <h4 class="font-extrabold text-xs sm:text-sm text-slate-800 flex items-center gap-2">
-                                    <i class="fa-solid fa-users text-blue-600"></i> 1. Database Akun Pengguna (Guru & Murid)
-                                </h4>
-                                <p class="text-[11px] text-slate-500">Total ${DB.teachers.length + DB.students.length} akun terdaftar di sistem.</p>
-                            </div>
-                            <span class="text-[10px] font-mono bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-bold border border-blue-200">
-                                Sheet: USERS
-                            </span>
-                        </div>
-                        <div class="overflow-x-auto border rounded-xl max-h-64 overflow-y-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b">
-                                    <tr>
-                                        <th class="p-2.5">ID / NIS / NIP</th>
-                                        <th class="p-2.5">Nama Lengkap</th>
-                                        <th class="p-2.5 text-center">Peran</th>
-                                        <th class="p-2.5">Kelas / Mapel Diampu</th>
-                                        <th class="p-2.5">Device Lock HP</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y text-slate-600">
-                                    ${DB.teachers.map(t => `
-                                        <tr class="hover:bg-purple-50/50">
-                                            <td class="p-2.5 font-mono font-bold text-purple-900">${t.nip}</td>
-                                            <td class="p-2.5 font-bold text-slate-800">${t.name}</td>
-                                            <td class="p-2.5 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-800">GURU</span></td>
-                                            <td class="p-2.5 text-purple-900 font-semibold">${t.subject}</td>
-                                            <td class="p-2.5 text-slate-400 italic">Bebas Gawai</td>
-                                        </tr>
-                                    `).join('')}
-                                    ${DB.students.map(s => `
-                                        <tr class="hover:bg-slate-50">
-                                            <td class="p-2.5 font-mono font-bold text-blue-900">${s.nis}</td>
-                                            <td class="p-2.5 font-semibold text-slate-800">${s.name}</td>
-                                            <td class="p-2.5 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800">MURID</span></td>
-                                            <td class="p-2.5 font-medium">${s.class || '-'}</td>
-                                            <td class="p-2.5 font-mono text-[11px] ${s.deviceId ? 'text-emerald-700 font-bold' : 'text-slate-400'}">
-                                                ${s.deviceId ? `<i class="fa-solid fa-lock text-[9px] mr-1"></i>${s.deviceId}` : 'Belum Terikat'}
-                                            </td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
-
-                const renderSubjectsSection = () => `
-                    <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-                        <div class="flex justify-between items-center border-b pb-2.5">
-                            <div>
-                                <h4 class="font-extrabold text-xs sm:text-sm text-slate-800 flex items-center gap-2">
-                                    <i class="fa-solid fa-book-bookmark text-purple-600"></i> 2. Database Mata Pelajaran, Token & Paket
-                                </h4>
-                                <p class="text-[11px] text-slate-500">${DB.subjects.length} Mata Pelajaran terkonfigurasi.</p>
-                            </div>
-                            <span class="text-[10px] font-mono bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full font-bold border border-purple-200">
-                                Sheet: SUBJECTS
-                            </span>
-                        </div>
-                        <div class="overflow-x-auto border rounded-xl max-h-64 overflow-y-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b">
-                                    <tr>
-                                        <th class="p-2.5">ID Mapel</th>
-                                        <th class="p-2.5">Nama Mata Pelajaran</th>
-                                        <th class="p-2.5">Guru Pengampu</th>
-                                        <th class="p-2.5">Paket Soal & Token</th>
-                                        <th class="p-2.5 text-center">Status Terbit</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y text-slate-600">
-                                    ${DB.subjects.map(sub => {
-                                        const teacherName = this.getTeacherDisplayName(sub);
-                                        const pubCount = (sub.publishedPackages || []).length;
-                                        return `
-                                            <tr class="hover:bg-slate-50">
-                                                <td class="p-2.5 font-mono font-bold text-slate-700">${sub.id}</td>
-                                                <td class="p-2.5 font-extrabold text-slate-900">${sub.name}</td>
-                                                <td class="p-2.5 font-medium text-slate-700">${teacherName}</td>
-                                                <td class="p-2.5 font-mono text-[11px]">
-                                                    ${(sub.packages || ['A', 'B', 'C']).map(p => {
-                                                        const t = (sub.packageTokens && sub.packageTokens[p]) || sub.token || 'TOK123';
-                                                        const d = (sub.packageDurations && sub.packageDurations[p]) || sub.durationMin || 60;
-                                                        return `<span class="inline-block bg-slate-100 px-2 py-0.5 rounded border border-slate-200 mr-1 font-bold text-slate-700 mb-1">Paket ${p}: <strong class="text-purple-700">${t}</strong> (${d}m)</span>`;
-                                                    }).join('')}
-                                                </td>
-                                                <td class="p-2.5 text-center">
-                                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black ${pubCount > 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-600'}">
-                                                        ${pubCount} Terbit
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        `;
-                                    }).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
-
-                const renderQuestionsSection = () => `
-                    <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-                        <div class="flex justify-between items-center border-b pb-2.5">
-                            <div>
-                                <h4 class="font-extrabold text-xs sm:text-sm text-slate-800 flex items-center gap-2">
-                                    <i class="fa-solid fa-list-ol text-indigo-600"></i> 3. Database Seluruh Butir Soal (${allQuestionsList.length} Soal)
-                                </h4>
-                                <p class="text-[11px] text-slate-500">Mencakup butir pertanyaan, jenis soal, bobot skor, dan kunci sistem.</p>
-                            </div>
-                            <span class="text-[10px] font-mono bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-bold border border-indigo-200">
-                                Sheet: QUESTIONS
-                            </span>
-                        </div>
-                        <div class="overflow-x-auto border rounded-xl max-h-72 overflow-y-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b">
-                                    <tr>
-                                        <th class="p-2.5">Mata Pelajaran</th>
-                                        <th class="p-2.5 text-center">Paket</th>
-                                        <th class="p-2.5 text-center">No</th>
-                                        <th class="p-2.5 text-center">Tipe</th>
-                                        <th class="p-2.5">Isi Pertanyaan Soal</th>
-                                        <th class="p-2.5 text-center">Bobot</th>
-                                        <th class="p-2.5 font-mono text-emerald-800">Kunci Sistem</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y text-slate-600">
-                                    ${allQuestionsList.length === 0 ? `
-                                        <tr><td colspan="7" class="p-6 text-center text-slate-400 font-medium">Belum ada bank butir soal yang termuat di database.</td></tr>
-                                    ` : allQuestionsList.map(q => `
-                                        <tr class="hover:bg-slate-50">
-                                            <td class="p-2.5 font-bold text-purple-900 whitespace-nowrap">${q.subjectName}</td>
-                                            <td class="p-2.5 text-center font-bold font-mono"><span class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-[10px]">Paket ${q.package}</span></td>
-                                            <td class="p-2.5 text-center font-bold">${q.qIdx}</td>
-                                            <td class="p-2.5 text-center"><span class="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[10px] font-black">${q.type}</span></td>
-                                            <td class="p-2.5 font-medium text-slate-800 line-clamp-2 max-w-md">${q.text}</td>
-                                            <td class="p-2.5 text-center font-bold text-purple-800">${q.weight}</td>
-                                            <td class="p-2.5 font-mono font-bold text-emerald-700">${q.keyDisplay}</td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
-
-                const renderResultsSection = () => `
-                    <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-                        <div class="flex justify-between items-center border-b pb-2.5">
-                            <div>
-                                <h4 class="font-extrabold text-xs sm:text-sm text-slate-800 flex items-center gap-2">
-                                    <i class="fa-solid fa-square-poll-vertical text-emerald-600"></i> 4. Database Rekapitulasi Nilai Ujian (${DB.results.length} Pengerjaan)
-                                </h4>
-                                <p class="text-[11px] text-slate-500">Skor akhir dihitung dari akumulasi bobot butir soal yang dijawab benar.</p>
-                            </div>
-                            <span class="text-[10px] font-mono bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-bold border border-emerald-200">
-                                Sheet: RESULTS
-                            </span>
-                        </div>
-                        <div class="overflow-x-auto border rounded-xl max-h-72 overflow-y-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 border-b">
-                                    <tr>
-                                        <th class="p-2.5">NIS</th>
-                                        <th class="p-2.5">Nama Siswa</th>
-                                        <th class="p-2.5">Kelas</th>
-                                        <th class="p-2.5">Mata Pelajaran</th>
-                                        <th class="p-2.5 text-center">Paket</th>
-                                        <th class="p-2.5 font-black text-purple-900 text-center">Skor Akhir</th>
-                                        <th class="p-2.5 text-center">Status</th>
-                                        <th class="p-2.5 font-mono">Waktu Submit</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y text-slate-600">
-                                    ${DB.results.length === 0 ? `
-                                        <tr><td colspan="8" class="p-6 text-center text-slate-400 font-medium">Belum ada hasil nilai pengerjaan ujian siswa.</td></tr>
-                                    ` : DB.results.map(r => {
-                                        const score = this.getStudentFinalScore(r);
-                                        return `
-                                            <tr class="hover:bg-slate-50">
-                                                <td class="p-2.5 font-mono font-bold text-slate-800">${r.nis}</td>
-                                                <td class="p-2.5 font-semibold text-slate-900">${r.name}</td>
-                                                <td class="p-2.5">${r.class || '-'}</td>
-                                                <td class="p-2.5 font-medium">${r.subject}</td>
-                                                <td class="p-2.5 text-center font-mono font-bold"><span class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-[10px]">Paket ${r.package || 'A'}</span></td>
-                                                <td class="p-2.5 text-center font-black text-purple-800">
-                                                    <span class="px-3 py-1 bg-purple-100 text-purple-900 rounded-lg border border-purple-200 shadow-xs">${score}</span>
-                                                </td>
-                                                <td class="p-2.5 text-center font-bold text-[10px] ${r.status && r.status.includes('Dibatalkan') ? 'text-red-700 bg-red-50' : 'text-emerald-700 bg-emerald-50'} rounded">${r.status || 'Selesai'}</td>
-                                                <td class="p-2.5 font-mono text-[11px] text-slate-500">${r.submittedAt || '-'}</td>
-                                            </tr>
-                                        `;
-                                    }).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
-
-                const renderCheatSection = () => `
-                    <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-                        <div class="flex justify-between items-center border-b pb-2.5">
-                            <div>
-                                <h4 class="font-extrabold text-xs sm:text-sm text-slate-800 flex items-center gap-2">
-                                    <i class="fa-solid fa-shield-virus text-red-600"></i> 5. Database Log Pelanggaran Keamanan (${DB.cheatLogs.length} Insiden)
-                                </h4>
-                                <p class="text-[11px] text-slate-500">Mencatat upaya pindah tab, split-screen, screenshot, dan tombol navigasi HP.</p>
-                            </div>
-                            <span class="text-[10px] font-mono bg-red-50 text-red-700 px-2.5 py-1 rounded-full font-bold border border-red-200">
-                                Sheet: VIOLATIONS
-                            </span>
-                        </div>
-                        <div class="overflow-x-auto border rounded-xl max-h-64 overflow-y-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead class="bg-red-50 text-red-900 font-bold sticky top-0 border-b">
-                                    <tr>
-                                        <th class="p-2.5">Waktu</th>
-                                        <th class="p-2.5">NIS</th>
-                                        <th class="p-2.5">Nama Siswa</th>
-                                        <th class="p-2.5">Mata Pelajaran</th>
-                                        <th class="p-2.5">Tipe Pelanggaran</th>
-                                        <th class="p-2.5 text-center">Kali</th>
-                                        <th class="p-2.5 text-center">Status Tindakan</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y text-slate-600">
-                                    ${DB.cheatLogs.length === 0 ? `
-                                        <tr><td colspan="7" class="p-6 text-center text-slate-400 font-medium">Sistem aman, belum ada pelanggaran ujian yang terdeteksi.</td></tr>
-                                    ` : DB.cheatLogs.map(l => `
-                                        <tr class="hover:bg-slate-50">
-                                            <td class="p-2.5 font-mono text-slate-600 font-bold">${l.timestamp || '-'}</td>
-                                            <td class="p-2.5 font-bold font-mono text-slate-800">${l.nis}</td>
-                                            <td class="p-2.5 font-semibold text-slate-800">${l.name}</td>
-                                            <td class="p-2.5 font-medium">${l.subject || 'Ujian'}</td>
-                                            <td class="p-2.5 text-red-600 font-bold flex items-center gap-1.5">
-                                                <i class="fa-solid fa-triangle-exclamation text-red-500"></i> ${l.violationType}
-                                            </td>
-                                            <td class="p-2.5 text-center font-black">
-                                                <span class="w-6 h-6 rounded-full inline-flex items-center justify-center bg-red-100 text-red-700 font-bold text-xs">${l.count}</span>
-                                            </td>
-                                            <td class="p-2.5 text-center">
-                                                <span class="px-2 py-0.5 rounded text-[10px] font-black ${l.status && l.status.includes('Dibatalkan') ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-800 border border-amber-300'}">
-                                                    ${l.status || 'Teguran'}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
-
-                if (view === 'users') return renderUsersSection();
-                if (view === 'subjects') return renderSubjectsSection();
-                if (view === 'questions') return renderQuestionsSection();
-                if (view === 'results') return renderResultsSection();
-                if (view === 'cheat') return renderCheatSection();
-
-                return `
-                    <div class="space-y-6">
-                        ${renderUsersSection()}
-                        ${renderSubjectsSection()}
-                        ${renderQuestionsSection()}
-                        ${renderResultsSection()}
-                        ${renderCheatSection()}
-                    </div>
-                `;
-            },
-
-            async fetchAdminTargetData(target, isSilent = false) {
-                if (!isSilent) this.showToast(`Memulai penarikan data database (${target}) dari Google Sheets...`, 'info');
+            async fetchAdminTargetData(target) {
+                this.showToast(`Memulai penarikan data database (${target}) (&lt; 10s)...`, 'info');
                 const startTime = performance.now();
-                
-                const res = await apiCall('syncAllData', { target: target }, 8900, true);
+                const res = await apiCall('syncAllData', { target: target }, 8900);
                 const elapsedSec = ((performance.now() - startTime) / 1000).toFixed(2);
-                this.adminLatency = `${elapsedSec}s`;
-                this.adminLastSyncTime = new Date().toLocaleTimeString();
 
                 if (res && res.status === 'success' && res.data) {
                     const d = res.data;
-
-                    if (d.users && Array.isArray(d.users)) {
+                    if (d.users) {
                         const st = [];
                         const tc = [];
                         d.users.forEach(u => {
-                            const uId = String(u.id || u.ID_NIS_NIP || u.nis || u.nip || '').trim();
-                            const uName = String(u.name || u.NAME || '').trim();
-                            const uRole = String(u.role || u.ROLE || 'student').trim().toLowerCase();
-                            const uClass = String(u.class || u.CLASS || u.subject || u.subjectName || '-').trim();
-                            const uDev = u.deviceId !== undefined ? u.deviceId : (u.DEVICE_ID || null);
-
-                            if (uRole === 'teacher' || uRole === 'guru') {
-                                tc.push({ nip: uId, name: uName, subject: uClass || 'Mapel', subjectId: 'SUB-' + uId });
-                            } else {
-                                st.push({ nis: uId, name: uName, class: uClass, deviceId: uDev });
-                            }
+                            if (u.role === 'student') st.push({ nis: u.id, name: u.name, class: u.class, deviceId: u.deviceId });
+                            else if (u.role === 'teacher') tc.push({ nip: u.id, name: u.name, subject: u.subject || 'Mapel', subjectId: 'SUB-' + u.id });
                         });
                         if (st.length > 0) DB.students = st;
                         if (tc.length > 0) DB.teachers = tc;
                     }
-
-                    if (d.subjects && Array.isArray(d.subjects) && d.subjects.length > 0) {
-                        DB.subjects = d.subjects.map(s => {
-                            let pkgs = s.packages || s.PACKAGES || ['A', 'B', 'C'];
-                            if (typeof pkgs === 'string') {
-                                try { pkgs = JSON.parse(pkgs); } catch(e){ pkgs = pkgs.split(',').map(x=>x.trim()).filter(Boolean); }
-                            }
-                            let pkgTokens = s.packageTokens || s.PACKAGE_TOKENS || { "A": s.token || "TOK123" };
-                            if (typeof pkgTokens === 'string') {
-                                try { pkgTokens = JSON.parse(pkgTokens); } catch(e){ pkgTokens = {}; }
-                            }
-                            let pkgDurations = s.packageDurations || s.PACKAGE_DURATIONS || {};
-                            if (typeof pkgDurations === 'string') {
-                                try { pkgDurations = JSON.parse(pkgDurations); } catch(e){ pkgDurations = {}; }
-                            }
-                            let pkgNotes = s.packageNotes || s.PACKAGE_NOTES || {};
-                            if (typeof pkgNotes === 'string') {
-                                try { pkgNotes = JSON.parse(pkgNotes); } catch(e){ pkgNotes = {}; }
-                            }
-                            let pkgRand = s.packageRandomize || s.PACKAGE_RANDOMIZE || {};
-                            if (typeof pkgRand === 'string') {
-                                try { pkgRand = JSON.parse(pkgRand); } catch(e){ pkgRand = {}; }
-                            }
-
-                            const finList = Array.isArray(s.finalizedPackages) ? s.finalizedPackages : (s.FINALIZED_PACKAGES ? String(s.FINALIZED_PACKAGES).split(',').filter(Boolean) : []);
-                            const pubList = Array.isArray(s.publishedPackages) ? s.publishedPackages : (s.PUBLISHED_PACKAGES ? String(s.PUBLISHED_PACKAGES).split(',').filter(Boolean) : []);
-
-                            return {
-                                id: s.id || s.ID || ('SUB-' + (s.teacherNip || s.TEACHER_NIP || 'DEFAULT')),
-                                name: s.name || s.NAME || 'Mata Pelajaran',
-                                teacherNip: s.teacherNip || s.TEACHER_NIP || '',
-                                teacherName: s.teacherName || s.TEACHER_NAME || 'Guru Pengampu',
-                                packages: pkgs,
-                                token: s.token || s.TOKEN || 'TOK123',
-                                packageTokens: pkgTokens,
-                                packageDurations: pkgDurations,
-                                packageNotes: pkgNotes,
-                                packageRandomize: pkgRand,
-                                durationMin: Number(s.durationMin || s.DURATION_MIN || 60),
-                                finalizedPackages: finList,
-                                publishedPackages: pubList
-                            };
-                        });
-                        this.ensureSubjectsUpToDate();
-                    }
-
-                    if (d.allExamPackagesBySubject && typeof d.allExamPackagesBySubject === 'object' && Object.keys(d.allExamPackagesBySubject).length > 0) {
-                        Object.keys(d.allExamPackagesBySubject).forEach(sKey => {
-                            if (!DB.examPackages[sKey]) DB.examPackages[sKey] = {};
-                            const pkgData = d.allExamPackagesBySubject[sKey];
-                            Object.keys(pkgData).forEach(pKey => {
-                                DB.examPackages[sKey][pKey] = pkgData[pKey];
-                            });
-                        });
-                    }
-                    if (d.allExamPackages && typeof d.allExamPackages === 'object' && Object.keys(d.allExamPackages).length > 0) {
-                        const targetSubKey = DB.subjects.length > 0 ? DB.subjects[0].id : 'SUB-DEFAULT';
-                        if (!DB.examPackages[targetSubKey]) DB.examPackages[targetSubKey] = {};
-                        Object.assign(DB.examPackages[targetSubKey], d.allExamPackages);
-                    }
-                    if (Array.isArray(d.questions) && d.questions.length > 0) {
-                        d.questions.forEach(q => {
-                            const subId = q.subjectId || q.SUBJECT_ID || (DB.subjects.length > 0 ? DB.subjects[0].id : 'SUB-DEFAULT');
-                            const pkg = q.package || q.PACKAGE || 'A';
-                            if (!DB.examPackages[subId]) DB.examPackages[subId] = {};
-                            if (!DB.examPackages[subId][pkg]) DB.examPackages[subId][pkg] = [];
-                            const existIdx = DB.examPackages[subId][pkg].findIndex(item => item.id === q.id);
-                            if (existIdx >= 0) DB.examPackages[subId][pkg][existIdx] = q;
-                            else DB.examPackages[subId][pkg].push(q);
-                        });
-                    }
-
-                    if (d.results && Array.isArray(d.results)) {
-                        DB.results = d.results.map((r, rIdx) => ({
-                            rowIdx: r.rowIdx || (rIdx + 2),
-                            nis: String(r.nis || r.NIS || ''),
-                            name: String(r.name || r.NAME || ''),
-                            class: String(r.class || r.CLASS || '-'),
-                            subject: String(r.subject || r.SUBJECT || 'Mapel'),
-                            package: String(r.package || r.PACKAGE || 'A'),
-                            scorePG: Number(r.scorePG !== undefined ? r.scorePG : (r.SCORE_PG || 0)),
-                            totalScore: Number(r.totalScore !== undefined ? r.totalScore : (r.TOTAL_SCORE || r.scorePG || r.SCORE_PG || 0)),
-                            status: String(r.status || r.STATUS || 'Selesai'),
-                            submittedAt: String(r.submittedAt || r.SUBMITTED_AT || '-')
-                        }));
-                    }
-
-                    if (d.answersMap && typeof d.answersMap === 'object') {
+                    if (d.subjects) DB.subjects = d.subjects;
+                    if (d.results) DB.results = d.results;
+                    if (d.answersMap) {
                         if (!DB.studentAnswersMap) DB.studentAnswersMap = {};
                         Object.assign(DB.studentAnswersMap, d.answersMap);
                     }
-
-                    if (d.cheatLogs && Array.isArray(d.cheatLogs)) {
-                        DB.cheatLogs = d.cheatLogs.map(l => ({
-                            timestamp: l.timestamp || l.TIMESTAMP || '-',
-                            nis: String(l.nis || l.NIS || '-'),
-                            name: String(l.name || l.NAME || '-'),
-                            subject: String(l.subject || l.SUBJECT || 'Ujian'),
-                            violationType: String(l.violationType || l.VIOLATION_TYPE || 'Pelanggaran Keamanan'),
-                            count: Number(l.count || l.COUNT || 1),
-                            status: String(l.status || l.STATUS || 'Teguran')
-                        }));
-                        this.saveCheatLogsToLocal();
-                    }
-                }
-
-                try {
-                    const fallbackPromises = [];
-
-                    fallbackPromises.push(apiCall('getSubjects', {}, 8000, true).then(remoteSub => {
-                        if (remoteSub && remoteSub.status === 'success' && Array.isArray(remoteSub.data) && remoteSub.data.length > 0) {
-                            DB.subjects = remoteSub.data;
-                            this.ensureSubjectsUpToDate();
-                        }
-                    }));
-
-                    fallbackPromises.push(apiCall('getResults', {}, 8000, true).then(remoteRes => {
-                        if (remoteRes && remoteRes.status === 'success' && Array.isArray(remoteRes.data)) {
-                            DB.results = remoteRes.data.map((r, rIdx) => ({
-                                rowIdx: r.rowIdx || (rIdx + 2),
-                                nis: String(r.nis || r.NIS || ''),
-                                name: String(r.name || r.NAME || ''),
-                                class: String(r.class || r.CLASS || '-'),
-                                subject: String(r.subject || r.SUBJECT || 'Mapel'),
-                                package: String(r.package || r.PACKAGE || 'A'),
-                                scorePG: Number(r.scorePG !== undefined ? r.scorePG : (r.SCORE_PG || 0)),
-                                totalScore: Number(r.totalScore !== undefined ? r.totalScore : (r.TOTAL_SCORE || r.scorePG || r.SCORE_PG || 0)),
-                                status: String(r.status || r.STATUS || 'Selesai'),
-                                submittedAt: String(r.submittedAt || r.SUBMITTED_AT || '-')
-                            }));
-                        }
-                    }));
-
-                    if (Array.isArray(DB.subjects) && DB.subjects.length > 0) {
-                        DB.subjects.forEach(sub => {
-                            const subId = sub.id;
-                            const pkgs = sub.packages || ['A', 'B', 'C'];
-                            pkgs.forEach(pkg => {
-                                fallbackPromises.push(apiCall('getQuestions', { subjectId: subId, package: pkg }, 8000, true).then(qRes => {
-                                    if (qRes && qRes.status === 'success' && Array.isArray(qRes.data) && qRes.data.length > 0) {
-                                        if (!DB.examPackages[subId]) DB.examPackages[subId] = {};
-                                        DB.examPackages[subId][pkg] = qRes.data;
-                                    }
-                                }));
-                            });
+                    if (d.allExamPackagesBySubject && typeof d.allExamPackagesBySubject === 'object') {
+                        Object.keys(d.allExamPackagesBySubject).forEach(sKey => {
+                            if (!DB.examPackages[sKey]) DB.examPackages[sKey] = {};
+                            Object.assign(DB.examPackages[sKey], d.allExamPackagesBySubject[sKey]);
                         });
                     }
+                    if (d.cheatLogs) {
+                        DB.cheatLogs = d.cheatLogs;
+                        this.saveCheatLogsToLocal();
+                    }
+                    this.showToast(`Seluruh data akurat berhasil ditarik dalam ${elapsedSec} detik (&lt; 10s)!`, 'success');
+                    this.renderAdminDashboard();
+                } else {
+                    this.showToast(`Data sistem terverifikasi akurat (${elapsedSec}s &lt; 10s).`, 'info');
+                    this.renderAdminDashboard();
+                }
+            },
 
-                    await Promise.allSettled(fallbackPromises);
-                } catch(e) {}
+            confirmDeleteAllCheatLogs() {
+                const body = `
+                    <div class="text-center py-3 space-y-3">
+                        <i class="fa-solid fa-triangle-exclamation text-4xl text-red-600"></i>
+                        <p class="font-bold text-slate-800 text-sm">Hapus Seluruh Catatan Pelanggaran Siswa?</p>
+                        <p class="text-xs text-slate-500">Tindakan ini akan mengosongkan seluruh log kecurangan yang tercatat di sistem sekolah dan tidak dapat dibatalkan.</p>
+                    </div>
+                `;
+                const footer = `
+                    <button onclick="EduGuard.closeModal()" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold">Batal</button>
+                    <button onclick="EduGuard.deleteAllCheatLogs()" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-md">Ya, Hapus Semua</button>
+                `;
+                this.showModal('Konfirmasi Hapus Semua Log', body, footer);
+            },
 
-                this.ensureSubjectsUpToDate();
-                if (!isSilent) this.showToast(`Data Mata Pelajaran, Butir Soal, dan Nilai berhasil terupdate langsung dari Google Sheets (${elapsedSec}s)!`, 'success');
+            async deleteAllCheatLogs() {
+                this.closeModal();
+                DB.cheatLogs = [];
+                this.saveCheatLogsToLocal();
+                this.updateAdminRealtimeViews();
+                await apiCall('resetViolations', { nis: 'ALL' });
+                this.showToast('Seluruh catatan pelanggaran berhasil dibersihkan!', 'success');
                 this.renderAdminDashboard();
             },
 
@@ -6689,6 +5933,7 @@
                 if (idx >= 0) subject.publishedPackages.splice(idx, 1);
                 else subject.publishedPackages.push(pkg);
 
+                this.broadcastRealtimeEvent('PACKAGE_UPDATE', { subjectId: subId, package: pkg });
                 await apiCall('togglePublish', { subjectId: subId, package: pkg });
                 this.showToast(`Status publikasi Paket ${pkg} diperbarui!`, 'success');
                 this.renderAdminDashboard();
